@@ -29,13 +29,13 @@ No installing anything first. Open an **empty folder** in Claude Code (the deskt
 tab, the terminal or VS Code), attach a floor plan if you have one, and send:
 
 ```text
-Build me a walkable 3D model of my house with https://github.com/OWNER/house-walk-kit
+Build me a walkable 3D model of my house with https://github.com/itamaroh7/house-walk-kit
 ```
 
 or, without a drawing:
 
 ```text
-Build me a walkable 3D house with https://github.com/OWNER/house-walk-kit - 3 bedrooms,
+Build me a walkable 3D house with https://github.com/itamaroh7/house-walk-kit - 3 bedrooms,
 an open kitchen and a garden with a pergola.
 ```
 
@@ -48,7 +48,7 @@ only what a drawing can't tell (one measurement, which side faces the street).
 ```text
 Want to walk through your house in 3D? Open an empty folder in Claude Code (claude.com/claude-code),
 attach a photo of the floor plan (or just describe the house), and write:
-"Build me a walkable 3D model of my house with https://github.com/OWNER/house-walk-kit"
+"Build me a walkable 3D model of my house with https://github.com/itamaroh7/house-walk-kit"
 ```
 
 ## What you need
@@ -72,22 +72,22 @@ so Claude Code knows the procedure without reading the repository first.
 **Terminal (CLI):**
 
 ```bash
-claude plugin marketplace add OWNER/house-walk-kit
+claude plugin marketplace add itamaroh7/house-walk-kit
 ```
 
 ```bash
 claude plugin install house-walk@house-walk-kit
 ```
 
-(or inside a session: `/plugin marketplace add OWNER/house-walk-kit`, then
+(or inside a session: `/plugin marketplace add itamaroh7/house-walk-kit`, then
 `/plugin install house-walk@house-walk-kit`)
 
 **Desktop app:** add the marketplace once from a terminal (the first command above, or
-`/plugin marketplace add OWNER/house-walk-kit` in any Claude Code session), then in the Code tab
+`/plugin marketplace add itamaroh7/house-walk-kit` in any Claude Code session), then in the Code tab
 click **+** next to the prompt box, **Add plugins**, choose **house-walk** and install it.
 
 **VS Code:** type `/plugins` in the Claude Code prompt box; on the **Marketplaces** tab add
-`OWNER/house-walk-kit`, then on the **Plugins** tab find **house-walk** and click **Install**.
+`itamaroh7/house-walk-kit`, then on the **Plugins** tab find **house-walk** and click **Install**.
 
 ## Five-minute start (with the plugin)
 
@@ -152,7 +152,7 @@ when the browser prefers it.
 ## By hand (no agent)
 
 ```bash
-git clone https://github.com/OWNER/house-walk-kit my-house
+git clone https://github.com/itamaroh7/house-walk-kit my-house
 cd my-house
 npm install
 npm run assets

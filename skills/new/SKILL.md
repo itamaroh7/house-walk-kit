@@ -45,7 +45,7 @@ node "${CLAUDE_PLUGIN_ROOT}/tools/new-project.mjs" .
 
 This copies the app, tools, `AGENTS.md`, `CLAUDE.md` and the example plan from the installed
 plugin (no download) and refuses to overwrite files. If it fails, clone instead:
-`git clone --depth 1 https://github.com/OWNER/house-walk-kit .` (empty folder) or into a
+`git clone --depth 1 https://github.com/itamaroh7/house-walk-kit .` (empty folder) or into a
 subfolder `house-walk` when the user's files are there.
 
 ## 4. Install and fetch the assets

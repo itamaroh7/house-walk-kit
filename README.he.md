@@ -32,7 +32,7 @@
 </div>
 
 ```text
-תבנה לי מודל תלת־ממדי של הבית שלי שאפשר להסתובב בו, עם https://github.com/OWNER/house-walk-kit
+תבנה לי מודל תלת־ממדי של הבית שלי שאפשר להסתובב בו, עם https://github.com/itamaroh7/house-walk-kit
 ```
 
 <div dir="rtl">
@@ -42,7 +42,7 @@
 </div>
 
 ```text
-תבנה לי בית תלת־ממדי שאפשר להסתובב בו עם https://github.com/OWNER/house-walk-kit – 3 חדרי שינה,
+תבנה לי בית תלת־ממדי שאפשר להסתובב בו עם https://github.com/itamaroh7/house-walk-kit – 3 חדרי שינה,
 מטבח פתוח וגינה עם פרגולה.
 ```
 
@@ -59,7 +59,7 @@
 ```text
 רוצים להסתובב בבית שלכם בתלת־ממד? פתחו תיקייה ריקה ב־Claude Code (claude.com/claude-code),
 צרפו צילום של תכנית הקומה (או פשוט תארו את הבית), וכתבו:
-"תבנה לי מודל תלת־ממדי של הבית שלי שאפשר להסתובב בו, עם https://github.com/OWNER/house-walk-kit"
+"תבנה לי מודל תלת־ממדי של הבית שלי שאפשר להסתובב בו, עם https://github.com/itamaroh7/house-walk-kit"
 ```
 
 <div dir="rtl">
@@ -85,7 +85,7 @@
 </div>
 
 ```bash
-claude plugin marketplace add OWNER/house-walk-kit
+claude plugin marketplace add itamaroh7/house-walk-kit
 ```
 
 ```bash
@@ -94,15 +94,15 @@ claude plugin install house-walk@house-walk-kit
 
 <div dir="rtl">
 
-(או בתוך שיחה: `/plugin marketplace add OWNER/house-walk-kit` ואחר כך
+(או בתוך שיחה: `/plugin marketplace add itamaroh7/house-walk-kit` ואחר כך
 `/plugin install house-walk@house-walk-kit`)
 
 **אפליקציה למחשב:** מוסיפים את ה־marketplace פעם אחת מטרמינל (הפקודה הראשונה למעלה, או
-`/plugin marketplace add OWNER/house-walk-kit` בכל שיחה של Claude Code), ואז בלשונית Code
+`/plugin marketplace add itamaroh7/house-walk-kit` בכל שיחה של Claude Code), ואז בלשונית Code
 לוחצים **+** ליד תיבת ההודעה, **Add plugins**, בוחרים **house-walk** ומתקינים.
 
 **VS Code:** כותבים `/plugins` בתיבת ההודעה של Claude Code; בלשונית **Marketplaces** מוסיפים
-`OWNER/house-walk-kit`, ובלשונית **Plugins** מוצאים את **house-walk** ולוחצים **Install**.
+`itamaroh7/house-walk-kit`, ובלשונית **Plugins** מוצאים את **house-walk** ולוחצים **Install**.
 
 ## התחלה בחמש דקות (עם התוסף)
 
@@ -171,7 +171,7 @@ Claude מתקין מה שחסר, מקים את הפרויקט, מוריד את �
 </div>
 
 ```bash
-git clone https://github.com/OWNER/house-walk-kit my-house
+git clone https://github.com/itamaroh7/house-walk-kit my-house
 cd my-house
 npm install
 npm run assets

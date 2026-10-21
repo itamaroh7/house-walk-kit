@@ -1,6 +1,6 @@
 # Instructions for AI agents
 
-You were given this repository's address (https://github.com/OWNER/house-walk-kit) and asked to
+You were given this repository's address (https://github.com/itamaroh7/house-walk-kit) and asked to
 build someone a 3D house they can walk through: from a floor-plan photo, scan or PDF, from a
 description ("3 bedrooms, open kitchen, a garden"), or from nothing at all ("make me a nice
 house"). This page is the whole procedure. Follow it from the top; don't stop after setting up.
@@ -27,13 +27,13 @@ shell, or call them by full path (`"C:\Program Files\nodejs\node.exe"`,
 (PowerShell: `$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')`).
 If winget or brew is missing too, send the person to https://nodejs.org (the LTS button) and
 continue when they say it is installed. Git is optional: without it, download
-https://github.com/OWNER/house-walk-kit/archive/refs/heads/main.zip and unzip it instead.
+https://github.com/itamaroh7/house-walk-kit/archive/refs/heads/main.zip and unzip it instead.
 
 ## 2. Get the project
 
 Work in the person's current folder.
-- Empty folder: `git clone --depth 1 https://github.com/OWNER/house-walk-kit .`
-- Folder with their files (the floor plan): `git clone --depth 1 https://github.com/OWNER/house-walk-kit house-walk`
+- Empty folder: `git clone --depth 1 https://github.com/itamaroh7/house-walk-kit .`
+- Folder with their files (the floor plan): `git clone --depth 1 https://github.com/itamaroh7/house-walk-kit house-walk`
   and work inside `house-walk/` (leave their files where they are).
 
 Then, inside the project:
