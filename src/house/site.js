@@ -19,7 +19,9 @@ const EXT = 0.25;
 
 export function makeSite(house, site = {}, { problem = () => {} } = {}) {
   const level = house.level;
-  const TOP = level.floor + level.ceiling + level.slab + level.parapet;
+  // the top of a room's outside walls: its storey's ceiling, the roof slab and the parapet
+  const H = level.ceiling + level.slab;
+  const TOP = (st = 0) => level.floor + st * H + level.ceiling + level.slab + level.parapet;
   const xs = house.rooms.flatMap((r) => r.poly.map((p) => p[0])), zs = house.rooms.flatMap((r) => r.poly.map((p) => p[1]));
   const [hx0, hx1, hz0, hz1] = [Math.min(...xs) - EXT / 2, Math.max(...xs) + EXT / 2, Math.min(...zs) - EXT / 2, Math.max(...zs) + EXT / 2];
   let [x0, z0, x1, z1] = site.plot ?? [hx0 - 4, hz0 - 4, hx1 + 4, hz1 + 6];
@@ -53,7 +55,10 @@ export function makeSite(house, site = {}, { problem = () => {} } = {}) {
     for (const r of house.rooms) {
       const px = r.poly.map((p) => p[0]), pz = r.poly.map((p) => p[1]);
       const [rx0, rx1] = [Math.min(...px) - EXT / 2, Math.max(...px) + EXT / 2];
-      panels.push([r.facade ?? house.finishes.exterior, 2 * B - rx1, 2 * B - rx0, Math.min(...pz) - EXT / 2, Math.max(...pz) + EXT / 2, 0, TOP]);
+      // an upper storey's volume starts where the one below ends (its parapet), so no two faces
+      // share a plane
+      const st = r.storey ?? 0;
+      panels.push([r.facade ?? house.finishes.exterior, 2 * B - rx1, 2 * B - rx0, Math.min(...pz) - EXT / 2, Math.max(...pz) + EXT / 2, st ? TOP(st - 1) : 0, TOP(st)]);
     }
     const [o0, o1] = otherPlot, g = 2 * B - (gate[0] + gate[1]) / 2;
     panels.push([wall.material, o0, Math.min(g - 0.8, o1), F - 0.125, F + 0.125, 0, wall.h]);

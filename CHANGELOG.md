@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0 (2026-10-21)
+
+- Houses of up to four storeys: rooms, openings and furniture take a `storey`; straight `stairs`
+  between storeys, with the well cut out of the floor above, balustrades, and the walker climbing
+  them. Outside walls stop at the next floor where an upper storey stands on them and keep their
+  parapet over lower roofs.
+- Top view (T) per storey: PageUp / PageDown (a "Floor" button on phones) cuts the house at the
+  floor looked at; dimensions (M) per storey with the total of all floors in the legend.
+- The light bake covers every storey (three probe levels each) and knows which rooms are on
+  which storey, so lower roofs stay outdoors.
+- Kit checks for upper rooms standing on nothing, stairs too steep or leading nowhere, doors onto
+  thin air; the layout check and the browser full test walk up the stairs and climb every flight.
+- A second example: a two-storey house.
+
 ## 0.1.0 (2026-10-21)
 
 First public version.

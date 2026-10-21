@@ -120,6 +120,7 @@ const touch = touchMode ? createTouchControls({
   onView: () => { cam.first = !cam.first; },
   onTop: () => toggleTop(),
   onDims: () => toggleDims(),
+  onStorey: () => changeStorey(1, true),
   onPinch: (f) => {
     if (top.on) top.dist = THREE.MathUtils.clamp(top.dist * f, 6, 60);
     else cam.dist = THREE.MathUtils.clamp(cam.dist * f, 1.0, 30);
@@ -142,6 +143,9 @@ addEventListener('keydown', (e) => {
   if (e.code === 'KeyE') toggleNearestDoor();
   if (e.code === 'KeyT') toggleTop();
   if (e.code === 'KeyM') toggleDims();
+  // the storey seen from above (a house with more than one)
+  if (e.code === 'PageUp') { changeStorey(1); e.preventDefault(); }
+  if (e.code === 'PageDown') { changeStorey(-1); e.preventDefault(); }
   if (e.code === 'KeyH') document.getElementById('help').hidden ^= 1;
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
@@ -250,8 +254,12 @@ const giKey = bakeKey(drawn, { spacing: giSpacing, sky, lampPower });
 const giFile = `/gi/${bakeFile(drawn, { spacing: giSpacing, sky, lampPower })}`;
 const shipped = params.has('rebake') ? null : await fetch(giFile).then((r) => (r.ok && r.headers.get('content-type')?.includes('octet') ? r.arrayBuffer() : null)).catch(() => null);
 const cached = shipped ? new Float32Array(shipped) : params.has('rebake') ? null : await idb('get', giKey);
+// three probe levels per storey, evenly spaced from floor to floor (a single storey keeps the
+// levels its bakes were made with)
+const storeyH = house.floorOf(1) - house.floorOf(0);
+const giLevels = house.storeys > 1 ? Array.from({ length: 3 * house.storeys }, (_, k) => 0.35 + (k * storeyH) / 3) : undefined;
 const bake = await bakeLightVolume(renderer, scene, house, volume, {
-  hide: [hero.root], spacing: giSpacing, cached, lamps: house.lights, lampPower,
+  hide: [hero.root], spacing: giSpacing, cached, lamps: house.lights, lampPower, levels: giLevels,
   onProgress: (f) => {
     if (window.__loading) window.__loading.stage(t('baking'), f);
     else loadingEl.textContent = `${t('baking')} ${Math.round(f * 100)}%`;
@@ -288,7 +296,7 @@ const reflectionOf = (target) => {
     box.makeEmpty();
     for (const m of meshes) box.expandByObject(m);
     box.getCenter(at);
-    const room = house.roomAt(at.x, at.z);
+    const room = house.roomAt(at.x, at.z, at.y);
     if (!room) continue;
     const xs = room.poly.map((q) => q[0]), zs = room.poly.map((q) => q[1]);
     const mid = new THREE.Vector3((Math.min(...xs) + Math.max(...xs)) / 2, at.y, (Math.min(...zs) + Math.max(...zs)) / 2);
@@ -325,17 +333,18 @@ const reflectionOf = (target) => {
   for (const room of plan.rooms) {
     const xs = room.poly.map((q) => q[0]), zs = room.poly.map((q) => q[1]);
     let x = (Math.min(...xs) + Math.max(...xs)) / 2, z = (Math.min(...zs) + Math.max(...zs)) / 2;
-    if (house.roomAt(x, z) !== room) [x, z] = room.poly[0].map((v, i) => v + (i ? 0.8 : 0.8));
+    const ry = house.floorOf(room.storey ?? 0) + 1.4;
+    if (house.roomAt(x, z, ry) !== room) [x, z] = room.poly[0].map((v, i) => v + (i ? 0.8 : 0.8));
     const target = new THREE.WebGLCubeRenderTarget(128, { type: THREE.HalfFloatType });
     const cube = new THREE.CubeCamera(0.05, 40, target);
-    cube.position.set(x, b.floor + 1.4, z);
+    cube.position.set(x, ry, z);
     cube.update(renderer, scene);
     probes.set(room, reflectionOf(target));
   }
   hero.root.visible = true;
   const clones = new Map();
   for (const obj of house.interior) {
-    const env = probes.get(house.roomAt(obj.position.x, obj.position.z));
+    const env = probes.get(house.roomAt(obj.position.x, obj.position.z, obj.position.y + 0.5));
     if (!env) continue;
     obj.traverse((m) => {
       if (!m.isMesh) return;
@@ -369,7 +378,11 @@ cam.yaw = 0;
 const RADIUS = 0.25, STEP = 0.36, HEIGHT = 1.75;
 player.groundAt = (x, z, y) => {
   let top = 0;
-  for (const s of house.walkable) if (x >= s.minX && x <= s.maxX && z >= s.minZ && z <= s.maxZ && s.top <= y + STEP) top = Math.max(top, s.top);
+  for (const s of house.walkable) {
+    if (x < s.minX || x > s.maxX || z < s.minZ || z > s.maxZ) continue;
+    const h = house.surfaceAt(s, x, z);
+    if (h <= y + STEP) top = Math.max(top, h);
+  }
   return top;
 };
 const blockers = () => house.obstacles.concat(house.doors.filter((d) => d.open < 0.3).map((d) => d.collider));
@@ -394,6 +407,7 @@ player.collide = (p, vel) => {
 function toggleNearestDoor() {
   let best = null;
   for (const d of house.doors) {
+    if (Math.abs(d.y - player.position.y) > 1.2) continue;
     const dist = Math.hypot(d.x - player.position.x, d.z - player.position.z);
     if (dist < 1.8 && (!best || dist < best.dist)) best = { d, dist };
   }
@@ -491,7 +505,9 @@ const clock = new THREE.Clock();
 renderer.localClippingEnabled = true;
 const cutBox = [[b.minX, b.minZ, b.maxX, b.maxZ], ...[...(plan.outdoor?.pergolas ?? []), ...(plan.outdoor?.canopies ?? [])].map((p) => p.box)]
   .reduce((a, [x0, z0, x1, z1]) => [Math.min(a[0], x0), Math.min(a[1], z0), Math.max(a[2], x1), Math.max(a[3], z1)], [Infinity, Infinity, -Infinity, -Infinity]);
-const CUT = b.floor + 2.45;
+// 2.45 m above the floor of the storey being looked at (PageUp / PageDown): the storeys above it
+// are cut away whole
+const CUT = (st) => house.floorOf(st) + 2.45;
 const cutTop = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e5);
 const cutPlanes = [
   cutTop,
@@ -506,11 +522,23 @@ if (topBtn) {
   topBtn.hidden = touchMode;
   topBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleTop(); topBtn.blur(); });
 }
-// the architectural dimensions over the top view (M): drawn just above the cut
-const dims = createDimensions(plan, { y: CUT + 0.03, container: document.getElementById('dims') });
-scene.add(dims.group);
-// for tests and skills: the top view's camera and the dimension totals
-Object.assign(window.__house, { top, dims });
+// the architectural dimensions over the top view (M), one set per storey, drawn just above its cut
+const storeyName = (st) => (house.storeys > 1 ? (st ? t('storeyN', { n: st }) : t('storeyGround')) : '');
+const storeyPlan = (st) => ({ ...plan, rooms: plan.rooms.filter((r) => (r.storey ?? 0) === st), walls: plan.walls.filter((w) => (w.storey ?? 0) === st) });
+const allDims = Array.from({ length: house.storeys }, (_, st) => createDimensions(storeyPlan(st), {
+  y: CUT(st) + 0.03, container: document.getElementById('dims'), storey: storeyName(st), plot: st === 0,
+}));
+if (house.storeys > 1) {
+  const gross = allDims.reduce((a, d) => a + d.totals.gross, 0), net = allDims.reduce((a, d) => a + d.totals.netTotal, 0);
+  for (const d of allDims) d.legend.insertAdjacentHTML('beforeend', `<br>${t('dimsAll', { g: gross.toFixed(1), n: net.toFixed(1) })}`);
+}
+for (const d of allDims) scene.add(d.group);
+if (touch?.storeyButton) touch.storeyButton.hidden = house.storeys < 2;
+top.storey = 0;
+let dims = allDims[0];
+// for tests and skills: the top view's camera and the dimension totals (of the storey shown)
+Object.assign(window.__house, { top, allDims });
+Object.defineProperty(window.__house, 'dims', { get: () => dims });
 const dimsBtn = document.getElementById('dims-btn');
 if (dimsBtn) {
   dimsBtn.hidden = touchMode;
@@ -522,7 +550,7 @@ function toggleDims() {
   dims.setVisible(!dims.visible);
   // read like a drawing: straight down, north up, the whole house in view
   if (dims.visible) {
-    top.target.set(centre.x, b.floor, centre.z);
+    top.target.set(centre.x, house.floorOf(top.storey), centre.z);
     top.yaw = 0;
     top.pitch = 1.52;
     top.dist = Math.max(top.dist, 29);
@@ -541,15 +569,37 @@ function toggleTop() {
     if (!touchMode) document.getElementById('help').hidden = false;
   }
   if (top.on) {
-    top.target.set(centre.x, b.floor, centre.z);
+    // from above, the storey the walker is on
+    showStorey(house.storeyAt(player.position.y));
+    top.target.set(centre.x, house.floorOf(top.storey), centre.z);
     top.yaw = cam.yaw;
     document.exitPointerLock?.();
   }
-  cutTop.constant = top.on ? CUT : 1e5;
+  cutTop.constant = top.on ? CUT(top.storey) : 1e5;
   // the hint moves up out of the way of the house seen from above
   hintEl.style.top = top.on ? 'calc(70px + env(safe-area-inset-top))' : '';
   renderer.shadowMap.needsUpdate = true;
   if (topBtn) topBtn.textContent = top.on ? t('topOff') : t('topOn');
+}
+// the storey seen from above: the cut, the camera's height and the dimensions follow it
+function showStorey(st) {
+  const shown = dims.visible;
+  if (shown) dims.setVisible(false);
+  top.storey = st;
+  dims = allDims[st];
+  if (shown) dims.setVisible(true);
+  if (top.on) {
+    cutTop.constant = CUT(st);
+    top.target.y = house.floorOf(st);
+    renderer.shadowMap.needsUpdate = true;
+  }
+}
+// PageUp / PageDown (or the touch button, which goes round) in the view from above
+function changeStorey(step, wrap = false) {
+  if (house.storeys < 2) return;
+  if (!top.on) toggleTop();
+  const next = top.storey + step;
+  showStorey(wrap ? (next + house.storeys) % house.storeys : THREE.MathUtils.clamp(next, 0, house.storeys - 1));
 }
 const gpuTimer = createGpuTimer(renderer.getContext());
 const perfEl = document.getElementById('perf'), roomEl = document.getElementById('room'), hintEl = document.getElementById('hint');
@@ -568,9 +618,9 @@ function tick(dt) {
     for (const leaf of d.leaves) leaf.rotation.y = d.open * 1.5;
   }
   const p = player.position;
-  const inside = !!house.roomAt(p.x, p.z);
+  const inside = !!house.roomAt(p.x, p.z, p.y);
   hero.root.visible = !cam.first || top.on;
-  walkerShadow.update(player.groundAt(p.x, p.z, p.y + 0.05), !house.roomAt(p.x, p.z));
+  walkerShadow.update(player.groundAt(p.x, p.z, p.y + 0.05), !house.roomAt(p.x, p.z, p.y));
   // tests can place the camera themselves (__house.freeCam)
   if (window.__house.freeCam) { /* camera left where the test put it */ } else if (top.on) {
     // pan with WASD / the arrows / the left stick, at a pace that suits the height
@@ -595,11 +645,11 @@ function tick(dt) {
     ray.set(Math.sin(cam.yaw) * cp, Math.sin(cam.pitch), Math.cos(cam.yaw) * cp);
     const dist = Math.min(cam.dist, Math.max(0.35, cameraBlock(head, ray, cam.dist) - 0.15));
     camera.position.copy(head).addScaledVector(ray, dist);
-    if (inside) camera.position.y = Math.min(camera.position.y, b.ceiling - 0.12);
+    if (inside) camera.position.y = Math.min(camera.position.y, house.topOf(house.storeyAt(p.y)) - 0.12);
     camera.position.y = Math.max(camera.position.y, p.y + 0.3);
     camera.lookAt(head);
   }
-  const camIn = !!house.roomAt(camera.position.x, camera.position.z) && camera.position.y < b.ceiling;
+  const camIn = !!house.roomAt(camera.position.x, camera.position.z, camera.position.y) && camera.position.y < house.topOf(house.storeyAt(camera.position.y));
   const ev = camIn ? EXPOSURE.inside : EXPOSURE.outside;
   renderer.toneMappingExposure *= Math.pow(ev / renderer.toneMappingExposure, Math.min(1, dt * 1.6));
   // from inside, the garden should read a stop or two brighter than the room (holding back 62%
@@ -627,7 +677,7 @@ function tick(dt) {
 
   frames++; acc += dt;
   if (acc > 0.5) {
-    const room = house.roomAt(p.x, p.z);
+    const room = house.roomAt(p.x, p.z, p.y);
     roomEl.textContent = room ? room.name : t('outside');
     const gpu = gpuTimer.ms;
     perfEl.textContent = `${Math.round(frames / acc)} fps${gpu ? ` · gpu ${gpu.toFixed(1)} ms` : ''}${renderScale < 1 ? ` · ${Math.round(renderScale * 100)}%` : ''}`;
@@ -635,9 +685,9 @@ function tick(dt) {
     // longer than ~33 ms is GPU-bound there far more often than not)
     adaptResolution(gpu ?? (touchMode ? (acc / frames) * 1000 * 0.45 : null));
     frames = 0; acc = 0;
-    const near = house.doors.some((d) => Math.hypot(d.x - p.x, d.z - p.z) < 1.8);
+    const near = house.doors.some((d) => Math.abs(d.y - p.y) < 1.2 && Math.hypot(d.x - p.x, d.z - p.z) < 1.8);
     hintEl.textContent = top.on
-      ? (touchMode ? t('hintTopTouch') : t('hintTop'))
+      ? (touchMode ? t('hintTopTouch') : t('hintTop')) + (house.storeys > 1 ? ` · ${storeyName(top.storey)}${touchMode ? '' : ` (${t('hintStoreys')})`}` : '')
       : near ? (touchMode ? t('hintDoorTouch') : t('hintDoor')) : '';
   }
 }
@@ -651,20 +701,20 @@ window.__house.look = async (px, py, pz, lx, ly, lz) => {
   camera.position.set(px, py, pz);
   camera.lookAt(lx, ly, lz);
   for (let k = 0; k < 8; k++) { tick(1 / 30); await new Promise((res) => setTimeout(res, 250)); }
-  return house.roomAt(px, pz)?.name ?? 'outside';
+  return house.roomAt(px, pz, py)?.name ?? 'outside';
 };
-// test hook: stand the player at (x, z) looking toward (lookX, lookZ) and settle a few frames
-window.__house.view = async (x, z, lookX, lookZ, pitch = 0.05, first = true) => {
+// test hook: stand the player at (x, z) on a storey looking toward (lookX, lookZ) and settle a few frames
+window.__house.view = async (x, z, lookX, lookZ, pitch = 0.05, first = true, storey = 0) => {
   document.getElementById('help').hidden = true;
   hintEl.style.visibility = 'hidden';
   window.__house.freeCam = false;
   cam.first = first;
-  player.position.set(x, 0.15, z);
+  player.position.set(x, house.floorOf(storey) + 0.01, z);
   player.velocity.set(0, 0, 0);
   cam.yaw = Math.atan2(-(lookX - x), -(lookZ - z));
   cam.pitch = pitch;
   for (let i = 0; i < 90; i++) tick(1 / 30);
   for (let k = 0; k < 5; k++) { await new Promise((res) => setTimeout(res, 300)); tick(1 / 30); }
-  return house.roomAt(x, z)?.name ?? 'outside';
+  return house.roomAt(x, z, player.position.y)?.name ?? 'outside';
 };
 renderer.setAnimationLoop(() => tick(Math.min(clock.getDelta(), 0.1)));

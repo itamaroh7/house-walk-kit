@@ -21,6 +21,8 @@ const GI_PARS_FRAGMENT = /* glsl */`
   uniform highp sampler3D giR, giG, giB;
   uniform sampler2D giMask;
   uniform vec3 giMin, giSize;
+  // the ground floor's level, the height of a storey, and of a storey's middle probes above its floor
+  uniform vec3 giStorey;
   uniform float giOn, giTop;
   // first-order SH irradiance with its directional part limited to 60% of the average: near a
   // ceiling lamp nearly all light comes from one side, and unclamped L1 then gives the ceiling
@@ -37,13 +39,16 @@ const GI_FRAGMENT = /* glsl */`
     // levels reach up to the ceiling and down to the floor); outside, the open sky
     vec3 gp = (vGiPos - giMin) / giSize;
     vec2 edge = smoothstep(vec2(0.0), vec2(0.004), gp.xz) * smoothstep(vec2(0.0), vec2(0.004), 1.0 - gp.xz);
-    float w = giOn * edge.x * edge.y * step(vGiPos.y, giTop) * texture2D(giMask, gp.xz).r;
+    // the mask holds the rooms of each storey in its own channel (up to four storeys)
+    float st = clamp(floor((vGiPos.y - giStorey.x + 0.05) / giStorey.y), 0.0, 3.0);
+    vec4 mk = texture2D(giMask, gp.xz);
+    float w = giOn * edge.x * edge.y * step(vGiPos.y, giTop) * (st < 0.5 ? mk.r : st < 1.5 ? mk.g : st < 2.5 ? mk.b : mk.a);
     gp = clamp(gp, 0.0, 1.0);
     if (w > 0.0) {
       vec3 n = normalize((vec4(geometryNormal, 0.0) * viewMatrix).xyz);
       // ceilings take their light from the probes at mid-height: the top probes sit a few
       // centimetres below the lamps, whose direct light left a dark ring around every fitting
-      if (n.y < -0.7) gp.y = min(gp.y, 0.5);
+      if (n.y < -0.7) gp.y = min(gp.y, (giStorey.x + st * giStorey.y + giStorey.z - giMin.y) / giSize.y);
       vec4 basis = vec4(0.886227, 1.023328 * n.y, 1.023328 * n.z, 1.023328 * n.x);
       vec3 E = vec3(giEval(texture(giR, gp), basis), giEval(texture(giG, gp), basis), giEval(texture(giB, gp), basis));
       // a white ceiling reads white: the oak floors' warm bounce (the only light reaching it)
@@ -77,7 +82,7 @@ export function createLightVolume() {
     uniforms: {
       giR: { value: empty() }, giG: { value: empty() }, giB: { value: empty() },
       giMask: { value: new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1) },
-      giMin: { value: new THREE.Vector3() }, giSize: { value: new THREE.Vector3(1, 1, 1) }, giOn: { value: 0 }, giTop: { value: 0 },
+      giMin: { value: new THREE.Vector3() }, giSize: { value: new THREE.Vector3(1, 1, 1) }, giStorey: { value: new THREE.Vector3(0, 1e4, 1) }, giOn: { value: 0 }, giTop: { value: 0 },
     },
   };
 }
@@ -113,7 +118,8 @@ export function useLightVolumeOn(object, volume) {
 }
 
 // Bake: probes on a grid through the house (cell centres, `spacing` apart, at `levels` heights
-// above the floor). Probes inside a wall or a piece of furniture take their neighbours' light.
+// above the ground floor: three per storey, evenly spaced). Probes inside a wall or a piece of
+// furniture take their neighbours' light.
 // opts.lamps: positions of ceiling lights that are on; they light the probes (neutral white, about 4000 K)
 export async function bakeLightVolume(renderer, scene, house, volume, { spacing = 1.0, levels = [0.35, 1.4, 2.5], size = 24, passes = 2, hide = [], onProgress, cached, lamps = [], lampPower = 2.2 } = {}) {
   const b = house.bounds;
@@ -130,13 +136,17 @@ export async function bakeLightVolume(renderer, scene, house, volume, { spacing 
     const idx = i + j * nx + k * nx * ny;
     pos[idx] = p;
     // only probes in a room (not in a wall, a wardrobe, or the patio the house wraps around)
-    valid[idx] = !house.roomAt(p.x, p.z) || house.obstacles.some((c) => inside(c, p.x, p.y, p.z, 0.04)) ? 0 : 1;
+    valid[idx] = !house.roomAt(p.x, p.z, p.y) || house.obstacles.some((c) => inside(c, p.x, p.y, p.z, 0.04)) ? 0 : 1;
   }
-  // where the volume applies: inside the rooms (5 cm cells, so walls' outer faces stay outdoors)
+  // where the volume applies: inside the rooms (5 cm cells, so walls' outer faces stay outdoors),
+  // storey s in channel s; a single storey fills all four
+  const storeys = house.storeys ?? 1;
   const MW = Math.ceil((b.maxX - b.minX) / 0.05), MH = Math.ceil((b.maxZ - b.minZ) / 0.05);
   const mask = new Uint8Array(MW * MH * 4);
   for (let r = 0; r < MH; r++) for (let c = 0; c < MW; c++) {
-    if (house.roomAt(b.minX + (c + 0.5) * 0.05, b.minZ + (r + 0.5) * 0.05)) mask.fill(255, (r * MW + c) * 4, (r * MW + c) * 4 + 4);
+    const x = b.minX + (c + 0.5) * 0.05, z = b.minZ + (r + 0.5) * 0.05;
+    if (storeys === 1) { if (house.roomAt(x, z)) mask.fill(255, (r * MW + c) * 4, (r * MW + c) * 4 + 4); continue; }
+    for (let st = 0; st < Math.min(storeys, 4); st++) if (house.roomAt(x, z, house.floorOf(st))) mask[(r * MW + c) * 4 + st] = 255;
   }
   const maskTex = new THREE.DataTexture(mask, MW, MH);
   maskTex.needsUpdate = true;
@@ -147,6 +157,7 @@ export async function bakeLightVolume(renderer, scene, house, volume, { spacing 
   volume.uniforms.giMin.value.set(b.minX, yMin - dy / 2, b.minZ);
   volume.uniforms.giSize.value.set(b.maxX - b.minX, dy * ny, b.maxZ - b.minZ);
   volume.uniforms.giTop.value = b.ceiling + 0.01;
+  volume.uniforms.giStorey.value.set(b.floor, house.floorOf ? house.floorOf(1) - house.floorOf(0) : 1e4, levels[0] + dy);
 
   if (cached?.length === N * 12) {
     upload(volume, cached, nx, ny, nz);

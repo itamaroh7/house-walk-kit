@@ -36,7 +36,10 @@ function simplify(poly) {
   return out.length >= 3 ? out : poly;
 }
 
-export function createDimensions(drawn, { y, container }) {
+export function createDimensions(drawn, { y, container, storey = '', plot: withPlot = true }) {
+  // its own layer in the container (a house with several storeys has one set of dimensions each)
+  const layer = document.createElement('div');
+  container.appendChild(layer);
   const walls = drawn.walls.map((w) => ({ ...w, openings: w.openings ?? [] }));
   const rooms = drawn.rooms.map((r) => ({ ...r, poly: simplify(r.poly) }));
   const EXT = Math.max(...walls.filter((w) => w.exterior).map((w) => w.t));
@@ -91,7 +94,7 @@ export function createDimensions(drawn, { y, container }) {
     const el = document.createElement('div');
     el.className = `dim-label ${cls}`;
     el.innerHTML = text;
-    container.appendChild(el);
+    layer.appendChild(el);
     labels.push({ el, pos: new THREE.Vector3(x, y, z), cls });
   };
 
@@ -222,25 +225,25 @@ export function createDimensions(drawn, { y, container }) {
 
   // the plot, inside the line of its boundary wall
   const pr = drawn.garden?.wall?.rect;
-  const plot = pr ? (pr[2] - pr[0]) * (pr[3] - pr[1]) : 0;
+  const plot = pr && withPlot ? (pr[2] - pr[0]) * (pr[3] - pr[1]) : 0;
   // the patio area roofed by pergolas
   const roofed = (drawn.outdoor?.pergolas ?? []).reduce((a, pg) => a + (pg.box[2] - pg.box[0]) * (pg.box[3] - pg.box[1]), 0);
   const legend = document.createElement('div');
   legend.className = 'dim-legend';
   const ints = [...new Set(walls.filter((w) => !w.exterior).map((w) => cm(w.t)))].join(', ');
-  legend.innerHTML = `${t('dimsTitle')}<br>`
+  legend.innerHTML = `${storey ? `<b>${escape(storey)}</b> · ` : ''}${t('dimsTitle')}<br>`
     + `${t('dimsGross', { a: gross.toFixed(1), w: (maxX - minX).toFixed(2), d: (maxZ - minZ).toFixed(2) })}<br>`
     + `${t('dimsNet', { a: netTotal.toFixed(1) })}<br>`
     + (plot ? `${t('dimsPlot', { plot: plot.toFixed(0), yard: (plot - gross).toFixed(0) })}${roofed ? t('dimsRoofed', { a: roofed.toFixed(0) }) : ''}<br>` : '')
     + t('dimsWalls', { ext: cm(EXT), int: ints });
-  container.appendChild(legend);
+  layer.appendChild(legend);
 
   const v = new THREE.Vector3();
   let visible = false;
   function setVisible(on) {
     visible = on;
     group.visible = on;
-    container.style.display = on ? '' : 'none';
+    layer.style.display = on ? '' : 'none';
   }
   setVisible(false);
 
@@ -255,5 +258,5 @@ export function createDimensions(drawn, { y, container }) {
     }
   }
 
-  return { group, setVisible, update, get visible() { return visible; }, totals: { gross, netTotal, width: maxX - minX, depth: maxZ - minZ } };
+  return { group, legend, setVisible, update, get visible() { return visible; }, totals: { gross, netTotal, width: maxX - minX, depth: maxZ - minZ } };
 }

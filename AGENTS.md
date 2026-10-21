@@ -55,6 +55,9 @@ as the model to copy.
 
 - **With a drawing**: read it carefully (zoom in), ask only what it cannot tell you (one known
   measurement, which side faces the street, where north is, the front door, a shared wall).
+- **Several storeys**: one drawing per floor is normal. Put every floor in the same coordinates
+  (line them up on the stairs and an outer wall), give upper rooms, openings and furniture
+  `storey: 1` (2, ...), and add the `stairs`. Up to four storeys.
 - **With a description, or nothing**: don't interrogate the person. Design a sensible house
   that fits what they said, state your assumptions in two or three lines, and build it; they
   can ask for changes afterwards.

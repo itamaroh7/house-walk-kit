@@ -25,6 +25,11 @@ Three starting points - pick the one that fits and don't ask more than you need:
    - a **shared wall** with a neighbour (semi-detached: `site.party: 'east'|'west'`, no openings in it).
 3. Convert pixels to metres with the known measurement; check two or three other rooms against
    it and mention it if they disagree.
+4. **More than one floor** (usually one drawing each): use one set of coordinates for all of them -
+   line the drawings up on the stairs and an outer wall. Upper rooms, openings and furniture get
+   `storey: 1` (2...); every upper room must stand on rooms below. Add `stairs: [{ from, box, up }]`
+   where the drawing has them (a straight flight; a U-shaped stair becomes the straight flight
+   that fits its well). `src/plans/example-two-storey.js` shows a whole two-storey house.
 
 ## B. From a description ("3 bedrooms, open kitchen, a big garden")
 
@@ -49,6 +54,9 @@ one line what you chose, build it, and offer changes.
   Bathrooms get a `high` window if they are on an outside wall.
 - Doors: 0.9 m (0.8 for bathrooms, 0.7 for a WC), at least 0.15 m from a wall corner. The front
   door (`front`) faces the street side or a path from it.
+- Two storeys: a straight stair of about 1.0 x 4.6 m (18 risers for 3.3 m) in a hall at least
+  2.3 m wide, with the walkway beside it on both floors and the upstairs doors reachable from
+  that walkway or from the top of the flight.
 - One open space = rooms with the same `zone`; a corridor open to an entry: `open: ['entry']`.
 - Outside: a terrace (surface + pergola) at the living room's slider, a path of `stones` from the
   gate to the front door, a few trees and a hedge (`hedge`, keep it 0.6 m inside the plot wall).

@@ -41,7 +41,7 @@ const CSS = `
 // and keyboard controls)
 export const isTouchDevice = () => new URLSearchParams(location.search).has('touch') || matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && matchMedia('(hover: none)').matches);
 
-export function createTouchControls({ cam, onDoor, onJump, onView, onTop, onDims, onPinch, clampPitch }) {
+export function createTouchControls({ cam, onDoor, onJump, onView, onTop, onDims, onStorey, onPinch, clampPitch }) {
   const stick = { x: 0, y: 0 };
   const look = { x: 0, y: 0 };
   const state = { stick, run: false, update };
@@ -93,12 +93,14 @@ export function createTouchControls({ cam, onDoor, onJump, onView, onTop, onDims
   // round buttons: a press fires once
   const buttons = document.createElement('div');
   buttons.className = 'tc-buttons';
-  for (const [label, action] of [[t('touchDoor'), onDoor], [t('touchJump'), onJump], [t('touchView'), onView], [t('touchTop'), onTop], [t('touchDims'), onDims]]) {
+  for (const [label, action, key] of [[t('touchDoor'), onDoor], [t('touchJump'), onJump], [t('touchView'), onView], [t('touchTop'), onTop], [t('touchDims'), onDims], [t('touchStorey'), onStorey, 'storey']]) {
     if (!action) continue;
     const b = document.createElement('button');
     b.className = 'tc-btn';
     b.textContent = label;
     b.addEventListener('pointerdown', (e) => { e.preventDefault(); action(); });
+    // the storey button waits until the house turns out to have more than one (state.storeyButton)
+    if (key === 'storey') { b.hidden = true; state.storeyButton = b; }
     buttons.appendChild(b);
   }
   document.body.appendChild(buttons);

@@ -15,7 +15,7 @@ room from above with its dimensions.
 
 It is two things in one repository:
 
-- **A template project** (three.js + Vite): real sky light, baked indoor light, furniture from a
+- **A template project** (three.js + Vite): houses of one to four storeys with stairs, real sky light, baked indoor light, furniture from a
   library of free models, a street and a neighbourhood, first and third person, a top view with
   the roof cut away, architectural dimensions, phone joysticks, English and Hebrew.
 - **A Claude Code plugin** (`house-walk`) with skills that set the project up, read your plan,
@@ -136,6 +136,7 @@ You rarely need to type them: Claude picks the right one from what you ask. The 
 | E | open or close the nearest door |
 | V | first / third person |
 | T | top view with the roof cut away (drag to turn, wheel to zoom, WASD to move) |
+| PageUp / PageDown | in the top view: the floor above / below (houses with several storeys) |
 | M | dimensions: room sizes, outside dimensions, areas |
 | H | hide the help |
 

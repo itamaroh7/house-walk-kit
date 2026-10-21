@@ -28,6 +28,9 @@ npm run build         # static site in dist/
 - Walls are centre lines. Rooms are outlines on those centre lines, so neighbouring rooms share
   coordinates. Exterior walls are 0.25 m thick, interior 0.12 m (`EXT`, `INT` in kit.js): a room
   drawn 3.4 m wide between centre lines is 3.4 - 0.125 - 0.06 = 3.215 m wide inside.
+- Storeys: a room's `storey` (0 = ground floor, up to 3). Storey s has its floor at
+  0.15 + 3.3 s (world y: 0.15, 3.45, 6.75, ...) and its ceiling 3.0 m above that. Draw every
+  storey in the same coordinates (stack the drawings on a shared corner or outer wall).
 - Heights: floor level 0.15 m above the ground, ceiling 3.0 m above the floor (world y 3.15),
   roof slab 0.3, parapet 0.45 (`LEVEL` in kit.js, overridable with `level`). Panels and some
   details take **world** heights (floor at y 0.15); furniture `y` options are above the floor.
@@ -64,13 +67,23 @@ export default makePlan({
     // open: ids of rooms this one is open to (no wall), e.g. a corridor open to the entry.
     // floor / walls: library material ids; facade: the outside finish of its exterior walls.
     // safe: true -> steel door and a blast shutter (a reinforced safe room).
+    // storey: 1 -> an upper-floor room (every upper room must stand on rooms of the storey below)
+    { id: 'bed2', storey: 1, name: 'Bedroom', rect: [0, 2, 3.5, 5.8], use: 'bedroom' },
   ],
+  // straight flights from storey `from` to the one above; `up` = the way one climbs. The box
+  // holds the steps (risers of at most 19 cm, treads 24-32 cm: 4.1-5.4 m long for a 3.3 m storey,
+  // at least 0.8 m wide), inside one room; the same box is the opening in the floor above, inside
+  // one room there too. Keep 0.5 m free beside
+  // the foot and the top (kit.js reports where one steps on and off), and a walkway beside the
+  // well upstairs to the rooms.
+  stairs: [{ from: 0, box: [7.1, 2.4, 8.1, 7.0], up: 'north' }],
   openings: [
     // on a wall line at its centre (x, z). Kinds and defaults (w, h, sill):
     // door 0.9x2.1 · front 0.9x2.2 · window 1.4x1.3 sill 0.9 · high 0.6x0.5 sill 1.7 ·
     // slider 2.4x2.4 · gap 1.2x2.3 (an opening without a door). shutter: 0..1 roller shutter.
     { kind: 'front', x: 6.3, z: 11 }, { kind: 'window', x: 0, z: 9, w: 1.8 },
     { kind: 'door', x: 1.8, z: 5.8 },
+    { kind: 'window', x: 1.7, z: 2, storey: 1 },       // an upper-floor opening
   ],
   outdoor: {
     surfaces: [{ box: [x0, z0, x1, z1], top: 0.13, material: 'floor_porcelain_outdoor' }, ...stones(6.3, 13, 6.3, 19.6, 7)],
@@ -83,11 +96,11 @@ export default makePlan({
     edging: [[x0, z0, x1, z1, top]], panels: [[material, x0, x1, z0, z1, y0, y1]],   // world heights
   },
   garden: { trees: [['Oak Small', x, z, seed, height]], bushes: [...hedge(...)], beds: [{ kind: 'lavender', clumps: lavender([x0, z0, x1, z1]) }] },
-  furniture: [['interior/sofa_modern', x, z, yaw, { scale, mount, ceiling, y, recolor, mirror }]],
+  furniture: [['interior/sofa_modern', x, z, yaw, { scale, mount, ceiling, y, recolor, mirror, storey }]],
 });
 ```
 
-Furniture options: `mount` keeps a wall-mounted model's own height (WC, basin, wall units, art);
+`src/plans/example-two-storey.js` is a complete two-storey house. Furniture options: `mount` keeps a wall-mounted model's own height (WC, basin, wall units, art);
 `ceiling` hangs it from the ceiling (pendants); `y` raises it (things on a table: 0.39 coffee
 table, 0.75 dining table); `scale`; `recolor: { materialName: [r, g, b] }`; `mirror`.
 Library models are listed in `public/library/catalog.json` (id, size [x, y, z] in metres);
@@ -104,6 +117,9 @@ materials in `public/library/materials/index.json`. Tree presets: `TREE_PRESETS`
   gap in an outside wall that is not the party wall; rooms in one open space share light)
 - rooms that overlap; rooms no door, gap or open space leads to from outside
 - rooms smaller than sensible for their use; a house that does not fit inside its plot
+- upper rooms with nothing under them; doors or gaps on an upper storey's outside wall
+- stairs too steep or too shallow for their box, too narrow, outside the rooms of either storey,
+  or with nowhere to step on or off
 
 Once the assets are in `public/`, `npm run check` also runs the layout check
 (`src/house/layout-check.js`, no browser needed): furniture standing in a wall, in other
@@ -120,14 +136,17 @@ messages (coordinates are given).
 
 ## Test hooks (browser console or javascript tool)
 
-- `__house.view(x, z, lookX, lookZ, pitch = 0.05, first = true)`: stand the walker and settle.
+- `__house.view(x, z, lookX, lookZ, pitch = 0.05, first = true, storey = 0)`: stand the walker and settle.
+- `__house.house.roomAt(x, z, y)` (y picks the storey), `.storeys`, `.floorOf(s)`, `.stairs`;
+  `__house.top.storey` and `__house.allDims` (one set of dimensions per storey).
 - `__house.look(px, py, pz, lx, ly, lz)`: free camera (top-down: `look(cx, 30, cz + 0.01, cx, 0, cz)`).
 - `__house.tick(dt)`: run one frame by hand (a hidden page gets no animation frames).
 - `__house.house.roomAt(x, z)`, `.doors`, `.obstacles`; `__house.plan`; `__house.bake`.
 - `__fullTest()` (above); `__gpuMemory()` with `?gpumem` (GPU allocations by kind).
 - URL: `?plan=<id>`, `?lang=en|he`, `?scale=0.8` (fixed render scale), `?gpumem`, `?rebake`,
   `?fp` (start in first person), `?touch` (phone controls on a desktop), `?ao=`, `?ev=`, `?lamps=`.
-- Keys: T top view, M dimensions, V first/third person, E door, H help.
+- Keys: T top view, M dimensions, PageUp / PageDown the storey seen from above, V first/third
+  person, E door, H help.
 
 ## Light bake
 

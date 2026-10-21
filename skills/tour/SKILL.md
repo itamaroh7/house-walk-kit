@@ -16,7 +16,9 @@ A key press from a script: `dispatchEvent(new KeyboardEvent('keydown', { code: '
 (then tick: `for (let i = 0; i < 30; i++) __house.tick(1/30)`).
 
 1. **Top view with dimensions**: key `M` turns on the cut-away top view, straight down, north
-   up, with room sizes, outside chains and the legend (gross / net area, plot, yard).
+   up, with room sizes, outside chains and the legend (gross / net area, plot, yard). A house
+   with several storeys: `PageUp` / `PageDown` (or `__house.top.storey` via those keys) shows
+   each floor with its own dimensions; take one picture per floor.
 2. **Top view, oblique**: key `M` again hides the dimensions, `T` leaves the top view; `T` once
    more for the cut-away view and `__house.top` to aim it, or a free camera
    `__house.look(cx + 12, 22, cz + 16, cx, 0, cz)` (cx, cz = the middle of
