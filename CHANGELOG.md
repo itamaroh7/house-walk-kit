@@ -28,3 +28,5 @@ First public version.
   doorways, and a walk from the street gate into every room.
 - Lean builds: `npm run build` keeps only the models and light bakes the plans use;
   `public/_headers` lets browsers cache the 3D files.
+- `public/THIRD-PARTY-NOTICES.txt`: the MIT notices of Microsoft Rocketbox, three.js, ez-tree and
+  the Hash without Sine noise hash, shipped with every built site and with the asset release.

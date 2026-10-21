@@ -2,6 +2,11 @@
 
 The code in this repository is under the MIT License ([LICENSE](LICENSE)).
 
+The copyright notices and license texts that the MIT-licensed parts ask for (Microsoft
+Rocketbox, three.js, ez-tree, the Hash without Sine noise hash) are in
+[public/THIRD-PARTY-NOTICES.txt](public/THIRD-PARTY-NOTICES.txt). It is copied into every built
+site and attached to the asset pack's release; keep it there when you publish a house.
+
 The 3D assets are not in the repository: `npm run assets` downloads them as one pack (see
 `assets.json`). Everything in the pack is free to use, change and share, commercially too:
 
@@ -15,6 +20,7 @@ The 3D assets are not in the repository: `npm run assets` downloads them as one 
 | The walking person `Male_Adult_01` and its animations (idle, walk, run), `player_ao.bin` (ambient occlusion baked from it) | [Microsoft Rocketbox](https://github.com/microsoft/Microsoft-Rocketbox) | MIT |
 | Trees and bushes (generated at run time, textures inside the npm package) | [ez-tree](https://github.com/dgreenheck/ez-tree) (`@dgreenheck/ez-tree`) | MIT |
 | 3D engine, loaders, Basis transcoder | [three.js](https://github.com/mrdoob/three.js) | MIT |
+| Noise hash in the film grain (`src/main.js`) | [Hash without Sine](https://www.shadertoy.com/view/4djSRW) | MIT |
 | Build tools | [Vite](https://vitejs.dev), [glTF Transform](https://gltf-transform.dev), [meshoptimizer](https://github.com/zeux/meshoptimizer), [sharp](https://sharp.pixelplumbing.com), [ktx2-encoder](https://github.com/gz65555/ktx2-encoder) | MIT / Apache-2.0 |
 
 Changes made to the assets for this kit: models simplified into three levels of detail and

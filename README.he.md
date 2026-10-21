@@ -221,6 +221,8 @@ claude plugin update house-walk@house-walk-kit
 ## קרדיטים ורישיונות
 
 קוד: MIT ‏([LICENSE](LICENSE)). נכסים תלת־ממדיים: Poly Haven ו־ambientCG ‏(CC0), Microsoft
-Rocketbox ‏(MIT), ez-tree ‏(MIT), three.js ‏(MIT) – כל נכס מפורט ב־[LICENSES.md](LICENSES.md).
+Rocketbox ‏(MIT), ez-tree ‏(MIT), three.js ‏(MIT) – כל נכס מפורט ב־[LICENSES.md](LICENSES.md); הודעות
+זכויות היוצרים של MIT נמצאות ב־[public/THIRD-PARTY-NOTICES.txt](public/THIRD-PARTY-NOTICES.txt), שנכלל גם בכל
+אתר שנבנה.
 
 </div>

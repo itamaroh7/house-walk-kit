@@ -198,4 +198,6 @@ you ask for it and confirm it.
 ## Credits and licenses
 
 Code: MIT ([LICENSE](LICENSE)). 3D assets: Poly Haven and ambientCG (CC0), Microsoft Rocketbox
-(MIT), ez-tree (MIT), three.js (MIT) - every asset is listed in [LICENSES.md](LICENSES.md).
+(MIT), ez-tree (MIT), three.js (MIT) - every asset is listed in [LICENSES.md](LICENSES.md); the
+MIT notices are in [public/THIRD-PARTY-NOTICES.txt](public/THIRD-PARTY-NOTICES.txt), which every
+built site ships too.

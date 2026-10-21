@@ -26,7 +26,8 @@ passwords for them.
 5. Progress bar: after a full load in the preview, read `window.__loadBytes` in the page, write
    `{ "bytes": <that> }` to `public/load-size.json`, and build again (about 80 MB for the example).
 
-`public/_headers` (copied into dist/) tells Netlify and Cloudflare Pages to let browsers cache
+`public/THIRD-PARTY-NOTICES.txt` (copied into dist/) carries the MIT notices the site must
+ship (Rocketbox, three.js, ez-tree): don't remove it. `public/_headers` (copied into dist/) tells Netlify and Cloudflare Pages to let browsers cache
 the 3D files for a week and the hashed files for a year: returning visitors download almost
 nothing, which saves bandwidth (and Netlify credits).
 

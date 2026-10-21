@@ -74,7 +74,8 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 useKTX2(renderer, '/basis/');
 // ACES plus a fine film grain: real photos always carry some noise. The
 // grain hash avoids sin(): the classic fract(sin(dot)) hash lines up into diagonal and vertical
-// streaks on GPUs, which read as brush marks on the smooth white walls
+// streaks on GPUs, which read as brush marks on the smooth white walls. The hash is "Hash
+// without Sine" (MIT; its notice is in public/THIRD-PARTY-NOTICES.txt)
 // ACES; ?tone=agx to compare (AgX read flatter and more washed out here, inside and out)
 const toneCurve = params.get('tone') === 'agx' ? 'AgXToneMapping' : 'ACESFilmicToneMapping';
 THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace(
