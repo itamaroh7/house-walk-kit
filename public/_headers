@@ -1,0 +1,13 @@
+# Cache rules for hosts that read a _headers file (Netlify, Cloudflare Pages): the 3D assets are
+# tens of megabytes, so a returning visitor should not download them again. Files whose names
+# change when their content does (the script bundle, the light bakes) are kept for a year.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/gi/*
+  Cache-Control: public, max-age=31536000, immutable
+/library/*
+  Cache-Control: public, max-age=604800
+/models/*
+  Cache-Control: public, max-age=604800
+/basis/*
+  Cache-Control: public, max-age=604800

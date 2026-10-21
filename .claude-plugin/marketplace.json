@@ -1,0 +1,14 @@
+{
+  "name": "house-walk-kit",
+  "owner": { "name": "house-walk-kit contributors" },
+  "description": "The house-walk plugin: floor plan to walkable 3D house.",
+  "plugins": [
+    {
+      "name": "house-walk",
+      "source": "./",
+      "description": "Turn a floor plan into a walkable 3D house in your browser.",
+      "category": "design",
+      "tags": ["3d", "architecture", "three.js"]
+    }
+  ]
+}

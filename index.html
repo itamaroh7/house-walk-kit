@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>House Walk</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #111; font-family: system-ui, 'Segoe UI', Arial, sans-serif; touch-action: none; overscroll-behavior: none; -webkit-user-select: none; user-select: none; }
+      canvas { display: block; }
+      #loading { position: fixed; inset: 0; display: grid; place-items: center; color: #ddd; font-size: 18px; background: #111; z-index: 10; }
+      #load-box { width: min(420px, 80vw); text-align: center; }
+      #load-bar { height: 8px; margin: 14px 0 10px; border-radius: 4px; background: #2a2a2a; overflow: hidden; }
+      #load-bar i { display: block; height: 100%; width: 0; border-radius: 4px; background: #8fb8e8; transition: width 0.25s linear; }
+      #load-info { font-size: 13px; color: #999; min-height: 1.4em; }
+      #hud { position: fixed; top: 12px; right: 14px; color: #fff; text-shadow: 0 1px 3px #000; font-size: 15px; pointer-events: none; }
+      #hud b { font-size: 19px; }
+      #help { position: fixed; bottom: 12px; right: 14px; color: #eee; background: rgba(0, 0, 0, 0.45); padding: 8px 12px; border-radius: 6px; font-size: 13px; line-height: 1.6; }
+      #perf { position: fixed; top: 10px; left: 12px; color: #cfc; font: 12px monospace; text-shadow: 0 1px 2px #000; pointer-events: none; }
+      #hint { position: fixed; top: 55%; left: 50%; transform: translateX(-50%); color: #fff; text-shadow: 0 1px 3px #000; font-size: 15px; pointer-events: none; }
+      #top-btn { position: fixed; bottom: 14px; left: 14px; padding: 9px 14px; border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 18px;
+        background: rgba(0, 0, 0, 0.5); color: #fff; font: 600 14px system-ui, 'Segoe UI', Arial, sans-serif; cursor: pointer; z-index: 4; }
+      #top-btn:hover, #dims-btn:hover { background: rgba(255, 255, 255, 0.22); }
+      #dims-btn { position: fixed; bottom: 14px; left: 200px; padding: 9px 14px; border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 18px;
+        background: rgba(0, 0, 0, 0.5); color: #fff; font: 600 14px system-ui, 'Segoe UI', Arial, sans-serif; cursor: pointer; z-index: 4; }
+      /* which plan: one entry per file in src/plans */
+      #plan-pick { position: fixed; bottom: 58px; left: 14px; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 14px;
+        background: rgba(0, 0, 0, 0.55); color: #fff; font: 600 13px system-ui, 'Segoe UI', Arial, sans-serif; z-index: 4; }
+      #plan-pick option, #quality-pick option { color: #111; background: #fff; }
+      @media (pointer: coarse) { #plan-pick { bottom: auto; top: calc(30px + env(safe-area-inset-top)); left: 10px; font-size: 12px; } }
+      #quality-pick { position: fixed; bottom: 98px; left: 14px; padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 14px;
+        background: rgba(0, 0, 0, 0.55); color: #fff; font: 600 13px system-ui, 'Segoe UI', Arial, sans-serif; z-index: 4; }
+      @media (pointer: coarse) { #quality-pick { bottom: auto; top: calc(66px + env(safe-area-inset-top)); left: 10px; font-size: 12px; } }
+      /* dimensions over the top view: labels placed each frame by house/dimensions.js */
+      #dims { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+      .dim-label { position: absolute; left: 0; top: 0; white-space: nowrap; font-family: system-ui, 'Segoe UI', Arial, sans-serif; }
+      .dim-label.room { background: rgba(255, 255, 255, 0.86); color: #1b1f24; font-size: 10px; line-height: 1.3; padding: 2px 5px;
+        border-radius: 4px; text-align: center; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
+      .dim-label.room b { font-size: 11px; }
+      .dim-label.chain { color: #111; background: rgba(255, 255, 255, 0.78); font: 600 11px system-ui, 'Segoe UI', Arial, sans-serif; padding: 0 3px; border-radius: 2px; }
+      .dim-label.opening { color: #fff; background: rgba(30, 90, 160, 0.85); font: 600 9px system-ui, 'Segoe UI', Arial, sans-serif; padding: 0 3px; border-radius: 2px; }
+      .dim-label.opening.window { background: rgba(20, 130, 120, 0.85); }
+      .dim-legend { position: fixed; top: calc(28px + env(safe-area-inset-top)); left: 12px; max-width: min(250px, 60vw); background: rgba(255, 255, 255, 0.9);
+        color: #1b1f24; font: 11px/1.5 system-ui, 'Segoe UI', Arial, sans-serif; padding: 8px 10px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); }
+      /* what the plan kit found wrong with the plan (src/house/kit.js) */
+      #problems { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); max-width: min(640px, 90vw); max-height: 40vh; overflow: auto;
+        background: rgba(120, 20, 20, 0.88); color: #fff; font: 13px/1.5 system-ui, 'Segoe UI', Arial, sans-serif; padding: 8px 14px; border-radius: 6px; z-index: 6; }
+      #problems ul { margin: 4px 0 0; padding-inline-start: 18px; }
+      #load-box code { background: #222; padding: 1px 5px; border-radius: 3px; }
+    </style>
+  </head>
+  <body>
+    <div id="loading"><div id="load-box"><div id="load-title" data-i18n="loading">Loading the house…</div><div id="load-bar"><i></i></div><div id="load-info"></div></div></div>
+    <script type="module" src="/src/loading.js"></script>
+    <div id="hud"><b id="house" dir="auto"></b><br /><span id="room" dir="auto"></span></div>
+    <div id="hint"></div>
+    <div id="perf"></div>
+    <button id="top-btn" type="button" data-i18n="topOn">Top view (T)</button>
+    <button id="dims-btn" type="button" data-i18n="dimsOn">Dimensions (M)</button>
+    <select id="plan-pick" data-i18n-label="planPick"></select>
+    <select id="quality-pick" data-i18n-label="qualityPick"></select>
+    <div id="dims"></div>
+    <div id="help" data-i18n="help"></div>
+    <div id="problems" hidden></div>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+# the asset pack (tools/fetch-assets.mjs unpacks it; tools/build-asset-pack.mjs builds it)
+dist-assets/
+public/library/
+public/models/
+public/basis/
+# local secrets and editor state
+.env
+.env.*
+.DS_Store
+Thumbs.db
+# the build plan of this kit (a working note, not part of the template)
+PLAN.md

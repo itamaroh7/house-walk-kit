@@ -1,0 +1,7 @@
+# one line ending for every text file, whatever the contributor's system
+* text=auto eol=lf
+*.jpg binary
+*.png binary
+*.bin binary
+*.glb binary
+*.ktx2 binary
