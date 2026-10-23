@@ -13,23 +13,39 @@ Three starting points - pick the one that fits and don't ask more than you need:
 
 ## A. From a drawing (photo, scan, PDF)
 
-1. Open it (a PDF: render the page to an image). Zoom in: crop each wing and upscale it before
-   reading rooms, door arcs, windows and fixtures (bed, sofa, kitchen run, WC, shower). The door
-   arcs show where every door is; find the front door from the drawing (arrow, path, arc to the
-   outside), don't guess it.
-2. Ask, in one short message, only what the drawing cannot tell:
-   - **one measurement they know** ("the living room is 5.4 m wide") - without it, assume a
-     typical bedroom of about 3.2 x 3.4 m and say so;
-   - which side faces the **street** (draw it at the bottom, south, +z) and where **north** is
-     (`site.north`);
-   - a **shared wall** with a neighbour (semi-detached: `site.party: 'east'|'west'`, no openings in it).
-3. Convert pixels to metres with the known measurement; check two or three other rooms against
-   it and mention it if they disagree.
-4. **More than one floor** (usually one drawing each): use one set of coordinates for all of them -
-   line the drawings up on the stairs and an outer wall. Upper rooms, openings and furniture get
-   `storey: 1` (2...); every upper room must stand on rooms below. Add `stairs: [{ from, box, up }]`
-   where the drawing has them (a straight flight; a U-shaped stair becomes the straight flight
-   that fits its well). `src/plans/example-two-storey.js` shows a whole two-storey house.
+Read it like an architect, not by eye: every number comes from the drawing, every edge is
+checked before anything is built (`docs/reading-a-drawing.md` has the method in full). A PDF:
+render the page to an image first. Working files go in `drawing-work/` (git-ignored; never put a
+user's drawing or its crops anywhere else).
+
+1. **Scale from the drawing's own dimension strings.** Find 3-5 dimension chains (thin lines with
+   ticks and numbers, usually along the outside). For each segment: tick-to-tick pixels / its
+   number = pixels per cm. Do x and y separately; they must agree. Ask the user for a measurement
+   only if the drawing has no dimensions at all.
+2. **Read with a pixel grid.** `npm run drawing:grid -- <image> <x0> <y0> <x1> <y1> --zoom 3` for
+   each area: read wall faces, door openings (a gap with an arc; the hinge is the arc's centre),
+   windows (marks in the wall, labels like `120 / 100 / UK=110` = width / height / sill) and
+   fixtures as pixel coordinates. A dimension line (thin, ticked, a number on it) is not a wall face.
+3. **Check every room against the area written in it** (and its own dimension strings). A
+   mismatch means a misread wall: find it before building. If the drawing contradicts itself (a
+   label vs. what is drawn), build what is drawn and tell the user.
+4. **Overlay before building.** Write the plan, then
+   `npm run drawing:overlay -- <image> <plan-id> --scale <px per metre> --origin <px,py>` (origin:
+   the drawing's pixel of the plan's (0, 0)) and look at it: every room edge on a wall, doors
+   green, sliders and gaps orange, windows magenta in their openings. Fix until it all sits.
+5. Ask, in one short message, only what the drawing does not say: which side faces the **street**
+   (draw it at the bottom, south, +z), where **north** is (`site.north`), a **shared wall**
+   (`site.party: 'east'|'west'`). Find the front door in the drawing (arrow, arc to the outside).
+6. **More than one floor** (usually one drawing each): one set of coordinates for all - line the
+   drawings up on the stairs and an outer wall. Upper rooms, openings and furniture get
+   `storey: 1` (2...); add `stairs: [{ from, box, up }]` (a U-shaped stair becomes the straight
+   flight that fits its well). `src/plans/example-two-storey.js` is a whole two-storey house.
+7. Things the library lacks at the drawn size (a 1.2 m counter, a stub wall, a niche): a
+   `details.panels` box of exactly that size.
+8. **After building:** take a top view (key T or M) and put it beside the drawing:
+   `npm run drawing:overlay -- <image> --compare <screenshot.png>`; send that image to the user,
+   run the full test, and list what is still unclear (a symbol you could not identify) instead of
+   filling it with a guess.
 
 ## B. From a description ("3 bedrooms, open kitchen, a big garden")
 

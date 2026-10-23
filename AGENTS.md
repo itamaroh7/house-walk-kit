@@ -53,8 +53,11 @@ to read a drawing, what to ask, how to design from a description or from nothing
 furniture). Then write `src/plans/<id>.js` with `makePlan({...})`, using `src/plans/example.js`
 as the model to copy.
 
-- **With a drawing**: read it carefully (zoom in), ask only what it cannot tell you (one known
-  measurement, which side faces the street, where north is, the front door, a shared wall).
+- **With a drawing**: read it like an architect - the scale from its own dimension strings,
+  walls and openings from gridded crops (`npm run drawing:grid`), every room against its written
+  area, and the plan laid over the drawing (`npm run drawing:overlay`) before building
+  (`docs/reading-a-drawing.md`). Ask only what it cannot tell you (which side faces the street,
+  where north is, a shared wall).
 - **Several storeys**: one drawing per floor is normal. Put every floor in the same coordinates
   (line them up on the stairs and an outer wall), give upper rooms, openings and furniture
   `storey: 1` (2, ...), and add the `stairs`. Up to four storeys.

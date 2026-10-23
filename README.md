@@ -100,6 +100,11 @@ click **+** next to the prompt box, **Add plugins**, choose **house-walk** and i
 Claude installs what is missing, sets up the project, downloads the 3D assets (about 130 MB,
 once), then designs, checks and shows your house.
 
+With a drawing, it reads it the way an architect would: the scale from the drawing's own
+dimension strings, every wall and door from a pixel grid, each room checked against the area
+written in it, and the reading laid over the drawing before anything is built. The method and
+its two tools: [docs/reading-a-drawing.md](docs/reading-a-drawing.md).
+
 **What to expect:** about 10-15 minutes to your first house (measured: setting up, designing and
 checking), then 1-5 minutes while the first visit works out the indoor light. After that, each change takes minutes: "move the
 kitchen door 50 cm east", "make the children's room bigger", "show me three versions with the
@@ -161,7 +166,8 @@ npm run dev
 ```
 
 Then open <http://127.0.0.1:5180/>. Plans live in `src/plans/` (see `src/plans/example.js` and
-[CLAUDE.md](CLAUDE.md) for the format); `npm run check` checks them.
+[CLAUDE.md](CLAUDE.md) for the format); `npm run check` checks them. To read a drawing:
+`npm run drawing:grid` and `npm run drawing:overlay` ([how](docs/reading-a-drawing.md)).
 
 ## Updating
 

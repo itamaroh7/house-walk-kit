@@ -5,6 +5,8 @@ dist-assets/
 public/library/
 public/models/
 public/basis/
+# crops and overlays of the drawings being read (tools/drawing-*.mjs): they stay on this computer
+drawing-work/
 # local secrets and editor state
 .env
 .env.*

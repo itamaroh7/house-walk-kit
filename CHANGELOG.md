@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 (2026-10-23)
+
+- Reading drawings: scale from dimension strings, gridded crops, area checks, overlay before
+  building, side-by-side comparison. The method is section A of the from-plan skill and
+  `docs/reading-a-drawing.md` (English and Hebrew).
+- `npm run drawing:grid`: an enlarged crop of a drawing with a labelled pixel grid.
+- `npm run drawing:overlay`: a plan's rooms, doors, sliders and windows drawn over the drawing;
+  `--compare` puts a top view of the built house beside it. Both write to `drawing-work/`
+  (git-ignored), so drawings stay on the user's computer.
+
 ## 0.2.0 (2026-10-21)
 
 - Houses of up to four storeys: rooms, openings and furniture take a `storey`; straight `stairs`

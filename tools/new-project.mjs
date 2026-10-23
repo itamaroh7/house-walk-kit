@@ -11,7 +11,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const target = process.argv[2] && path.resolve(process.argv[2]);
 if (!target) { console.error('usage: node tools/new-project.mjs <folder>'); process.exit(2); }
 
-const SKIP = new Set(['.git', '.github', '.claude-plugin', 'skills', 'node_modules', 'dist', 'dist-assets', 'PLAN.md']);
+const SKIP = new Set(['.git', '.github', '.claude-plugin', 'skills', 'node_modules', 'dist', 'dist-assets', 'drawing-work', 'PLAN.md']);
 const SKIP_PUBLIC = new Set(['library', 'models', 'basis']);
 async function files(dir, rel = '') {
   const out = [];

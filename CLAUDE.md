@@ -19,6 +19,17 @@ npm run check         # plan kit checks for every plan, in Node
 npm run build         # static site in dist/
 ```
 
+## Reading a drawing
+
+Read an architect's drawing by measuring, never by eye (`docs/reading-a-drawing.md`, and section
+A of `skills/from-plan/SKILL.md`): the scale from the drawing's own dimension strings (several
+chains, x and y separately), walls, doors and windows from gridded crops
+(`npm run drawing:grid`), every room checked against the area written in it, a dimension line
+never taken for a wall, and the plan laid over the drawing (`npm run drawing:overlay`) until every
+edge sits on a wall - before building. Afterwards, the top view beside the drawing
+(`--compare`) for the user, and a list of what stayed unclear. Working files go in
+`drawing-work/` (git-ignored).
+
 ## Coordinates and units
 
 - Metres. **x runs west to east, z runs north to south** (z grows toward the street). y is up.
@@ -208,5 +219,6 @@ shadow map (2048), AO, plants (alpha-tested leaves), grass (hidden indoors), int
   `gi.js` light bake; `bake-key.js` its file name; `layout-check.js` the browser-free layout check;
   `dimensions.js` the M overlay; `walker-shadow.js`
 - `src/engine/**` sky, grass, post-processing, character, player, loaders
-- `tools/` assets (fetch, pack, compress), `check-plans.mjs`, `prune-dist.mjs`, `new-project.mjs`, `set-owner.mjs`
+- `tools/` assets (fetch, pack, compress), `check-plans.mjs`, `prune-dist.mjs`, `new-project.mjs`, `set-owner.mjs`,
+  `drawing-grid.mjs` and `drawing-overlay.mjs` (reading a drawing)
 - `skills/` the Claude Code plugin's skills; `.claude-plugin/` its manifests
