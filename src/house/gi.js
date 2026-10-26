@@ -14,7 +14,15 @@ const GI_PARS_VERTEX = /* glsl */`
   varying vec3 vGiPos;
 `;
 const GI_POS_VERTEX = /* glsl */`
-  vGiPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+  // through the copy's own matrix when the mesh draws several (instanced or batched: batch-static.js)
+  vec4 giLocal = vec4(transformed, 1.0);
+  #ifdef USE_INSTANCING
+    giLocal = instanceMatrix * giLocal;
+  #endif
+  #ifdef USE_BATCHING
+    giLocal = batchingMatrix * giLocal;
+  #endif
+  vGiPos = (modelMatrix * giLocal).xyz;
 `;
 const GI_PARS_FRAGMENT = /* glsl */`
   varying vec3 vGiPos;

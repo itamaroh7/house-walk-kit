@@ -90,6 +90,12 @@ folder, use it.
   Playwright, Puppeteer...): it costs half an hour and adds nothing. Give the person the address
   and tell them the first load computes the light for 1-5 minutes.
 
+**Speed**: once the house has loaded (its light is baked), run `npm run bench -- --plan <id>` once. It uses the
+Chrome or Edge already installed (nothing to install, about a minute) and prints the frame rate
+inside the house and from the street. Below 60 fps, follow "Slow on someone else's computer" in
+`skills/perf/SKILL.md` (hardware acceleration off and laptops on battery are the usual causes)
+and tell the person what to change.
+
 The whole job should take about 10-15 minutes; tell the person when the house is ready rather
 than polishing it further on your own.
 
@@ -105,4 +111,5 @@ joysticks. Ask what they would like to change.
   the light computation.
 
 More: `skills/check`, `skills/variants` (several alternatives), `skills/tour` (pictures),
-`skills/perf` (speed), `skills/share` (publishing, only on request).
+`skills/perf` (speed: `npm run bench`, and updating an older project), `skills/share` (publishing,
+only on request). How the house stays fast: `docs/performance.md`.

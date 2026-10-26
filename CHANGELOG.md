@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.4.0 (2026-10-26)
+
+- About twice the frame rate on ordinary laptops (Intel Iris Xe: 40-45 to 80-95 fps in a house of
+  150 models; the examples 86 to 116 and 92 to 143 fps), with the same picture. The limit was the
+  processor, which no quality setting touches:
+  - every still model is drawn through a `BatchedMesh` per material, equal materials merged
+    first (~750 draw calls became ~230; `src/engine/lib/batch-static.js`);
+  - the house's matrices are computed once instead of every frame (`freeze-static.js`);
+  - transparent double-sided glass and curtains draw in one pass;
+  - clipping planes only while the top view is on;
+  - a three.js r170 bug that made every batch recompute its shader parameters is worked around.
+  `?fast=0` turns them off to compare (`?batch=0`, `?freeze=0` one each).
+- `npm run bench`: the frame rate on this computer, inside the house and from the street, with the
+  real GPU and no 60 fps cap; `--compare` (speed-ups off and on), `--profile` (where the CPU time
+  goes).
+- A warning on screen when the browser draws without the graphics card (hardware acceleration
+  off), with how to turn it on.
+- `docs/performance.md` (English and Hebrew): the whole fast-and-beautiful method, the numbers,
+  the rules for keeping it fast and what to check on a slow computer. The `perf` skill measures
+  with `npm run bench` and can update a project made with an older version; `new` and
+  `AGENTS.md` measure the speed once after the first house.
+
 ## 0.3.0 (2026-10-23)
 
 - Reading drawings: scale from dimension strings, gridded crops, area checks, overlay before

@@ -72,11 +72,17 @@ drawing, a description and "no idea - surprise me". Then `npm run check` until i
 the house, and tell them how to walk: W A S D and the mouse (click the picture first), Shift
 runs, E opens doors, T from above, M dimensions; on a phone, the joysticks.
 
+Once the house has loaded (light baked), measure this computer: `npm run bench -- --plan <id>`
+(about a minute, the installed Chrome or Edge in the background). If it says below 60 fps,
+follow "Slow on someone else's computer" in the `perf` skill
+(`${CLAUDE_PLUGIN_ROOT}/skills/perf/SKILL.md`) before the user walks around: hardware
+acceleration off or a laptop on battery are common and easy to fix.
+
 ## Gotchas
 
 - Editing any plan file hot-reloads every open tab and restarts their light bakes: finish edits,
   then let one tab bake.
-- A hidden browser pane runs slowly and its timings are unreliable; check speed with the page in view.
+- A hidden browser pane runs slowly and its timings are unreliable; measure speed with `npm run bench`.
 - The light bake key is the plan without outdoor items: changing furniture or walls rebakes
   (1-5 min), moving trees or bins does not.
 - After adding models, run `npm run compress` (KTX2 textures).

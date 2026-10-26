@@ -56,6 +56,7 @@ const STRINGS = {
     squareMetres: '{v} m²',
     problems: 'This plan has problems (run npm run check):',
     noAssets: 'The 3D models are not here yet. In a terminal in this folder run <code>npm run assets</code>, then reload.',
+    softwareGpu: 'This browser is drawing without the graphics card ({gpu}), so the house will move slowly whatever the quality. Turn on hardware acceleration (Chrome: Settings → System → "Use graphics acceleration when available", then restart the browser) and, on a laptop, plug it in.',
     failed: 'The house could not be loaded:',
   },
   he: {
@@ -104,6 +105,7 @@ const STRINGS = {
     squareMetres: '{v} מ"ר',
     problems: 'בתכנית יש בעיות (הריצו npm run check):',
     noAssets: 'המודלים התלת־ממדיים עוד לא כאן. בטרמינל בתיקייה הזו הריצו <code>npm run assets</code> וטענו מחדש.',
+    softwareGpu: 'הדפדפן מצייר בלי כרטיס המסך ({gpu}), ולכן הבית יזוז לאט בכל איכות. הפעילו האצת חומרה (בכרום: הגדרות → מערכת → "שימוש בהאצת גרפיקה כשאפשר", ואז הפעלה מחדש של הדפדפן), ובמחשב נייד חברו אותו לחשמל.',
     failed: 'לא הצלחנו לטעון את הבית:',
   },
 };

@@ -12,6 +12,8 @@ import { Player } from './engine/player.js';
 import { createGpuTimer } from './engine/lib/gpu-timer.js';
 import { releaseTextureMemory } from './engine/lib/texture-memory.js';
 import { useKTX2 } from './engine/lib/load-model.js';
+import { batchStatic } from './engine/lib/batch-static.js';
+import { freezeStatic, singlePassTransparency } from './engine/lib/freeze-static.js';
 import { buildHouse } from './house/build.js';
 import { createWalkerShadow } from './house/walker-shadow.js';
 import { createLightVolume, useLightVolumeOn, bakeLightVolume } from './house/gi.js';
@@ -70,6 +72,17 @@ const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'h
 renderer.setPixelRatio(pixelRatio());
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+// a browser drawing in software (hardware acceleration off, or no driver) is slow whatever the
+// quality setting: say so on screen, since nothing in the page can fix it
+{
+  const gl = renderer.getContext(), info = gl.getExtension('WEBGL_debug_renderer_info');
+  const gpuName = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : '';
+  if (/swiftshader|llvmpipe|softpipe|basic render|software/i.test(gpuName)) {
+    const box = document.getElementById('problems');
+    box.insertAdjacentHTML('beforeend', `<p dir="auto">${t('softwareGpu', { gpu: gpuName.replace(/</g, '&lt;') })}</p>`);
+    box.hidden = false;
+  }
+}
 // the library copy's textures are KTX2 (tools/compress-textures.mjs), transcoded by public/basis
 useKTX2(renderer, '/basis/');
 // ACES plus a fine film grain: real photos always carry some noise. The
@@ -437,9 +450,24 @@ function cameraBlock(from, dir, max) {
 window.__loadBytes = window.__loading?.done();
 document.getElementById('loading').remove();
 document.getElementById('house').textContent = plan.name;
+// the engine's speed-ups (docs/performance.md; ?fast=0 turns them all off, to compare, ?batch=0 /
+// ?freeze=0 one each): every copy of a model drawn in one call (batch-static.js), the opening
+// doors left as they are
+const fastOn = params.get('fast') !== '0';
+const doorModels = new Set(house.doors.flatMap((d) => d.leaves.map((leaf) => { let a = leaf; while (a && !a.isLOD) a = a.parent; return a; })));
+const batch = !fastOn || params.get('batch') === '0' ? null : batchStatic(house.group, { skip: (lod) => doorModels.has(lod), interior: new Set(house.interior) });
+if (batch) console.log(`batched ${batch.models} model copies into ${batch.batches} draws (${batch.skipped} left as they are)`);
+// the house stands still: its matrices are computed once, not every frame (freeze-static.js); only
+// the door leaves move, and the loop updates them
+const doorLeaves = house.doors.flatMap((d) => d.leaves);
+const frozen = !fastOn || params.get('freeze') === '0' ? null : freezeStatic(house.group, { moving: doorLeaves });
+// the scene itself never moves: left to update its own matrix each frame it flagged every object
+// under it as changed, and the whole house was walked again however frozen it was
+if (frozen) { scene.updateMatrixWorld(true); scene.matrixAutoUpdate = false; }
+if (fastOn) singlePassTransparency(scene);
 const freed = releaseTextureMemory(renderer, scene);
 console.log(`textures: ${freed.textures}, ${freed.released} images let go after upload (${(freed.bytes / 1e6).toFixed(0)} MB)`);
-window.__house = { THREE, scene, camera, renderer, player, cam, house, plan, keys, post, sun, volume, bake };
+window.__house = { THREE, scene, camera, renderer, player, cam, house, plan, keys, post, sun, volume, bake, batch, frozen };
 
 // a tiny key-value store on IndexedDB; any failure just means no cache
 function idb(op, key, value) {
@@ -501,8 +529,9 @@ const clock = new THREE.Clock();
 // the cut-away: every house material is clipped above CUT, but only inside the box of the house
 // and its pergolas (five planes whose intersection is that box's top), so the trees, the street
 // and the neighbours stay whole. Off, the top plane sits far above everything. The sun's shadows
-// are clipped the same way, so from above the rooms get the daylight
-renderer.localClippingEnabled = true;
+// are clipped the same way, so from above the rooms get the daylight. Clipping is switched on only
+// in the view from above: on all the time, its planes were worked out for every draw of the walk
+renderer.localClippingEnabled = !fastOn;
 const cutBox = [[b.minX, b.minZ, b.maxX, b.maxZ], ...[...(plan.outdoor?.pergolas ?? []), ...(plan.outdoor?.canopies ?? [])].map((p) => p.box)]
   .reduce((a, [x0, z0, x1, z1]) => [Math.min(a[0], x0), Math.min(a[1], z0), Math.max(a[2], x1), Math.max(a[3], z1)], [Infinity, Infinity, -Infinity, -Infinity]);
 // 2.45 m above the floor of the storey being looked at (PageUp / PageDown): the storeys above it
@@ -576,6 +605,7 @@ function toggleTop() {
     document.exitPointerLock?.();
   }
   cutTop.constant = top.on ? CUT(top.storey) : 1e5;
+  renderer.localClippingEnabled = top.on || !fastOn;
   // the hint moves up out of the way of the house seen from above
   hintEl.style.top = top.on ? 'calc(70px + env(safe-area-inset-top))' : '';
   renderer.shadowMap.needsUpdate = true;
@@ -615,7 +645,10 @@ function tick(dt) {
   if (frameNo === 1 || house.doors.some((d) => Math.abs(d.target - d.open) > 1e-3)) renderer.shadowMap.needsUpdate = true;
   for (const d of house.doors) {
     d.open += THREE.MathUtils.clamp(d.target - d.open, -dt * 2.2, dt * 2.2);
-    for (const leaf of d.leaves) leaf.rotation.y = d.open * 1.5;
+    for (const leaf of d.leaves) {
+      leaf.rotation.y = d.open * 1.5;
+      if (frozen) leaf.updateMatrixWorld(true);
+    }
   }
   const p = player.position;
   const inside = !!house.roomAt(p.x, p.z, p.y);
@@ -658,8 +691,9 @@ function tick(dt) {
   // of the room, not the bright sky
   for (const g of glass) { g.opacity = camIn ? 0.3 : 0.55; g.envMapIntensity = camIn ? 0.4 : 2.0; }
   // from outside, furniture deep in the house can only be glimpsed through the windows up close:
-  // past ~14 m it is skipped (hundreds of draw calls seen from the street)
-  for (const o of house.interior) o.visible = top.on || camIn || o.position.distanceToSquared(camera.position) < 196;
+  // past ~14 m it is skipped
+  if (batch) batch.update(camera, { interiorRange: top.on || camIn ? Infinity : 14 });
+  else for (const o of house.interior) o.visible = top.on || camIn || o.position.distanceToSquared(camera.position) < 196;
   // room corners and furniture feet need wider ambient occlusion than open ground (?ao=); not
   // darker: the baked light already darkens the corners, and at 6 the occlusion laid dark smears
   // on the walls beside furniture and greyed whole rooms

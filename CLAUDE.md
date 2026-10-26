@@ -173,7 +173,11 @@ a plan after it changes (only the newest key is used).
 - Editing any plan file hot-reloads every open tab and restarts their bakes: finish the edits,
   then bake once. Keep one tab of the app open.
 - A hidden browser pane runs slowly (throttled timers, no animation frames) and its frame and GPU
-  timings are not reliable: use `__house.tick`, and measure performance with the page visible.
+  timings are not reliable: use `__house.tick` to step it, and `npm run bench` to measure speed.
+- The house's matrices are frozen after loading (`freeze-static.js`): an object you move later
+  must be updated with `object.updateMatrixWorld(true)`, or it stays where it was. Still models
+  are drawn through batches (`batch-static.js`): changing a material or hiding a mesh of one copy
+  at run time does nothing; skip that model in `batchStatic` first.
 - After adding or replacing library models, run `npm run compress` (KTX2 textures), or they load
   as large uncompressed images.
 - Indoor ambient occlusion above ~3 (`?ao=`) smears dark patches on the walls.
@@ -188,11 +192,17 @@ Most of this kit's realism and speed came from fixing problems one by one. Keep 
   different models and LOD levels are shared by name (`load-model.js`); decoded images are let
   go after upload (`texture-memory.js`); small models and detail maps are capped at 512 px. A
   house takes ~0.5 GB of GPU memory, not 2-4 GB.
-- **Speed**: one mesh per material for the house; trees and bushes merged; the sun's shadow map
-  (2048) is drawn once and again only when a door moves; indoor furniture casts no sun shadow and
-  is hidden from far outside; grass is hidden indoors; furniture switches to lighter levels early;
-  dynamic resolution (never below 70-80%, SMAA always on); a quality menu; phones get pixel ratio
-  1 and a lighter picture.
+- **Speed, CPU side** (the part no quality setting can fix; `docs/performance.md`): every still
+  model is drawn through a `BatchedMesh` per material, equal materials merged first (~750 draw
+  calls became ~230); the house's matrices are frozen and the scene's own `matrixAutoUpdate` is
+  off; transparent double-sided materials draw in one pass; clipping planes only in the top view;
+  `colorTexture = null` on each batch (a three.js r170 bug). Together they doubled the frame rate
+  on a laptop (40-45 to 80-95 fps).
+- **Speed, GPU side**: one mesh per material for the house; trees and bushes merged; the sun's
+  shadow map (2048) is drawn once and again only when a door moves; indoor furniture casts no sun
+  shadow and is left out from far outside; grass is hidden indoors; furniture switches to lighter
+  levels early; dynamic resolution (never below 70-80%, SMAA always on); a quality menu; phones
+  get pixel ratio 1 and a lighter picture.
 - **Loading**: the light bake ships as a file (`public/gi`), so visitors don't wait; a progress
   bar with MB and time left (`public/load-size.json`); `loading.js` is its own small script.
 - **Light and look**: sun from the south-south-east of true north at 43 degrees; indoor exposure
@@ -207,10 +217,21 @@ Most of this kit's realism and speed came from fixing problems one by one. Keep 
 ## Performance budget
 
 Target: 60 fps (16 ms a frame) on an Intel Iris Xe laptop at 1080p with the balanced quality.
-The quality menu (fast / balanced / high) sets the pixel ratio, AO and how far dynamic resolution
-may drop (70% / 80% / never). Known costs: textures (KTX2 keeps them ~4x smaller), the sun's
-shadow map (2048), AO, plants (alpha-tested leaves), grass (hidden indoors), interior furniture
-(hidden from far outside).
+The method, the numbers and the rules for keeping it fast are in `docs/performance.md`: read it
+before changing `main.js`, `build.js` or the engine.
+
+A frame has two budgets. **GPU**: the quality menu (fast / balanced / high) sets the pixel ratio,
+AO and how far dynamic resolution may drop (70% / 80% / never); known costs are textures (KTX2
+keeps them ~4x smaller), the sun's shadow map (2048), AO, plants (alpha-tested leaves), grass
+(hidden indoors), interior furniture (left out from far outside). **CPU**: draw calls, matrix
+updates and shader bookkeeping; no quality setting touches them, so keep the batching and
+freezing working: no per-frame `needsUpdate` or changes to `transparent`/`side`/`alphaTest`, no
+`onBeforeRender` on still meshes, moving things passed to `freezeStatic`'s `moving` and skipped
+by `batchStatic`.
+
+Measure with `npm run bench` (frame rate at two views on this computer's real GPU), `-- --compare`
+(the speed-ups off and on, `?fast=0`) and `-- --profile` (where the CPU time goes). Run
+`npm run bench -- --compare` before and after any change that could cost speed.
 
 ## Files
 
@@ -218,7 +239,9 @@ shadow map (2048), AO, plants (alpha-tested leaves), grass (hidden indoors), int
 - `src/house/kit.js` plan kit + checks; `site.js` plot/street/neighbourhood; `build.js` the scene;
   `gi.js` light bake; `bake-key.js` its file name; `layout-check.js` the browser-free layout check;
   `dimensions.js` the M overlay; `walker-shadow.js`
-- `src/engine/**` sky, grass, post-processing, character, player, loaders
+- `src/engine/**` sky, grass, post-processing, character, player, loaders;
+  `src/engine/lib/batch-static.js` and `freeze-static.js` the CPU-side speed-ups
 - `tools/` assets (fetch, pack, compress), `check-plans.mjs`, `prune-dist.mjs`, `new-project.mjs`, `set-owner.mjs`,
-  `drawing-grid.mjs` and `drawing-overlay.mjs` (reading a drawing)
+  `drawing-grid.mjs` and `drawing-overlay.mjs` (reading a drawing), `bench.mjs` (frame rate)
+- `docs/performance.md` how the house stays fast and beautiful
 - `skills/` the Claude Code plugin's skills; `.claude-plugin/` its manifests

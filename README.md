@@ -61,8 +61,8 @@ attach a photo of the floor plan (or just describe the house), and write:
   (you may be asked to approve the installer). By hand: Windows `winget install OpenJS.NodeJS.LTS`
   and `winget install Git.Git`; macOS `brew install node git`; Linux your package manager or
   [nvm](https://github.com/nvm-sh/nvm).
-- A computer with a reasonable graphics chip (an Intel Iris Xe laptop runs it at 60 fps) and
-  about 500 MB free.
+- A computer with a reasonable graphics chip (an ordinary Intel Iris Xe laptop runs it at 80-95
+  fps; `npm run bench` measures yours) and about 500 MB free.
 
 ## Install the plugin (optional, for regular use)
 
@@ -126,7 +126,7 @@ The street is at the bottom of the drawing and north is up. Answer me in English
 | `/house-walk:check` | The plan kit's checks and the in-browser full test, and fixes what fails |
 | `/house-walk:variants` | Several alternative designs under your constraints, with an area table |
 | `/house-walk:tour` | Top view, eye-level pictures and the dimensions legend, sent as images |
-| `/house-walk:perf` | GPU memory and frame time, and the known fixes |
+| `/house-walk:perf` | Frame rate on this computer (`npm run bench`), what limits it, GPU memory, and the fixes |
 | `/house-walk:share` | Builds a static website; deploys only after you say yes (optional password) |
 
 You rarely need to type them: Claude picks the right one from what you ask. The exception is
@@ -155,6 +155,24 @@ choice is remembered in the browser.
 Add `?lang=he` or `?lang=en` to the address to switch language; Hebrew is chosen automatically
 when the browser prefers it.
 
+## Fast and beautiful on an ordinary laptop
+
+The house looks close to a photograph and still runs at 80-95 frames a second on an ordinary
+Intel Iris Xe laptop. The look is paid for once, before the first frame: the light of the sky,
+the sun and every lamp is baked into the house, and textures stay compressed on the graphics chip.
+Each frame is then cheap for both the graphics chip **and** the processor: the ~150 furniture
+models are drawn in a few dozen calls instead of ~750, nothing that stands still is recomputed,
+and the shadows are drawn only when a door moves. Version 0.4.0 added the processor side and
+doubled the frame rate (from 40-45 fps).
+
+How it works, the numbers and the rules for keeping it fast:
+[docs/performance.md](docs/performance.md). To measure your own computer, with `npm run dev`
+running:
+
+```bash
+npm run bench
+```
+
 ## By hand (no agent)
 
 ```bash
@@ -176,7 +194,9 @@ claude plugin update house-walk@house-walk-kit
 ```
 
 Plugins from community marketplaces do not update by themselves. A project you already made keeps
-working as it is; new versions of the template are in [CHANGELOG.md](CHANGELOG.md).
+working as it is; new versions of the template are in [CHANGELOG.md](CHANGELOG.md). To bring an
+existing project up to date (for example the 0.4.0 speed-ups), ask Claude to "update this house
+project to the latest house-walk-kit": it pulls or copies the new engine and keeps your plans.
 
 ## Troubleshooting
 
@@ -187,8 +207,12 @@ working as it is; new versions of the template are in [CHANGELOG.md](CHANGELOG.m
 - **Stuck on "Working out the light in the house"**: the first visit of a changed plan bakes its
   light (1-5 minutes; slower on weak graphics). Keep the tab visible - background tabs are slowed
   down by the browser.
-- **The page is slow or pixelated**: choose *fast* in the quality menu; close other heavy tabs;
-  on laptops, plug in power (the graphics chip slows down on battery).
+- **The page is slow or pixelated**: first update an older project (`git pull`; projects made
+  before 0.4.0 run at about half the speed), then run `npm run bench` and ask Claude to read it
+  (`/house-walk:perf`). Usual causes: hardware acceleration is off in the browser (a red box
+  says so; Chrome: Settings, System, "Use graphics acceleration when available"), a laptop on
+  battery (plug in), other heavy tabs, a 4K screen (choose *fast* in the quality menu).
+  [More](docs/performance.md#still-slow-on-someones-computer).
 - **A red box with "This plan has problems"**: the plan kit found something wrong (a window not
   on a wall, a bedroom without daylight...). Ask Claude to fix it, or run `npm run check`.
 - **`npm install` fails on `sharp`**: it is only needed for adding new models; update Node.js to

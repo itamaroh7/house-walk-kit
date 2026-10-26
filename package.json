@@ -1,6 +1,6 @@
 {
   "name": "house-walk-kit",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Turn a floor plan into a walkable 3D house in the browser (three.js + Vite), with a Claude Code plugin that does the work",
@@ -17,7 +17,8 @@
     "compress": "node tools/compress-textures.mjs",
     "pack-assets": "node tools/build-asset-pack.mjs",
     "drawing:grid": "node tools/drawing-grid.mjs",
-    "drawing:overlay": "node tools/drawing-overlay.mjs"
+    "drawing:overlay": "node tools/drawing-overlay.mjs",
+    "bench": "node tools/bench.mjs"
   },
   "dependencies": {
     "@dgreenheck/ez-tree": "^1.1.0",
