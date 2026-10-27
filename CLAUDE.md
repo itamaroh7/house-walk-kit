@@ -80,6 +80,10 @@ export default makePlan({
     // safe: true -> steel door and a blast shutter (a reinforced safe room).
     // storey: 1 -> an upper-floor room (every upper room must stand on rooms of the storey below)
     { id: 'bed2', storey: 1, name: 'Bedroom', rect: [0, 2, 3.5, 5.8], use: 'bedroom' },
+    // void: true -> the upper part of a double-height room: exactly the outline of the room below,
+    // no floor (that room has no ceiling or slab there, its walls rise through both storeys). A
+    // gallery: an upstairs room open to it (`open`) gets a glass railing along the edge.
+    { id: 'tall', storey: 1, name: 'Living room (double height)', rect: [0, 7, 5.4, 11], void: true, open: ['hall1'] },
   ],
   // straight flights from storey `from` to the one above; `up` = the way one climbs. The box
   // holds the steps (risers of at most 19 cm, treads 24-32 cm: 4.1-5.4 m long for a 3.3 m storey,
@@ -88,10 +92,19 @@ export default makePlan({
   // the foot and the top (kit.js reports where one steps on and off), and a walkway beside the
   // well upstairs to the rooms.
   stairs: [{ from: 0, box: [7.1, 2.4, 8.1, 7.0], up: 'north' }],
+  // a U or L stair: its flights, each with its own box and `up`, and a landing between each two
+  // (the risers are shared out over the flights by their run, each flight's last riser stepping
+  // onto the landing); `box` is the stairwell, the opening in the floor above. Each flight and
+  // landing lies inside one room of storey `from` (the space under a raised flight is closed in);
+  // the last flight's head is where one steps off upstairs, so leave floor there, outside the well.
+  //   stairs: [{ from: 0, box: [7.7, 0.2, 9.9, 3.2],
+  //     flights: [{ box: [8.9, 1.2, 9.9, 4.0], up: 'north' }, { box: [7.7, 1.2, 8.7, 3.2], up: 'south' }],
+  //     landings: [[7.7, 0.2, 9.9, 1.2]] }],
   openings: [
     // on a wall line at its centre (x, z). Kinds and defaults (w, h, sill):
     // door 0.9x2.1 · front 0.9x2.2 · window 1.4x1.3 sill 0.9 · high 0.6x0.5 sill 1.7 ·
     // slider 2.4x2.4 · gap 1.2x2.3 (an opening without a door). shutter: 0..1 roller shutter.
+    // into: the id of the room an inside door opens into (by default away from the hall).
     { kind: 'front', x: 6.3, z: 11 }, { kind: 'window', x: 0, z: 9, w: 1.8 },
     { kind: 'door', x: 1.8, z: 5.8 },
     { kind: 'window', x: 1.7, z: 2, storey: 1 },       // an upper-floor opening
@@ -130,7 +143,8 @@ materials in `public/library/materials/index.json`. Tree presets: `TREE_PRESETS`
 - rooms smaller than sensible for their use; a house that does not fit inside its plot
 - upper rooms with nothing under them; doors or gaps on an upper storey's outside wall
 - stairs too steep or too shallow for their box, too narrow, outside the rooms of either storey,
-  or with nowhere to step on or off
+  or with nowhere to step on or off; flights without a landing between them
+- a void room that is not exactly over a room of the storey below
 
 Once the assets are in `public/`, `npm run check` also runs the layout check
 (`src/house/layout-check.js`, no browser needed): furniture standing in a wall, in other

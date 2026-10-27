@@ -60,7 +60,8 @@ as the model to copy.
   where north is, a shared wall).
 - **Several storeys**: one drawing per floor is normal. Put every floor in the same coordinates
   (line them up on the stairs and an outer wall), give upper rooms, openings and furniture
-  `storey: 1` (2, ...), and add the `stairs`. Up to four storeys.
+  `storey: 1` (2, ...), and add the `stairs` (straight, or U and L stairs as flights with a
+  landing). A room open over two floors is a `void` room upstairs. Up to four storeys.
 - **With a description, or nothing**: don't interrogate the person. Design a sensible house
   that fits what they said, state your assumptions in two or three lines, and build it; they
   can ask for changes afterwards.

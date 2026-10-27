@@ -30,6 +30,8 @@ export function checkLayout(plan, catalog) {
   const { floor: FL, ceiling: CH, slab: SLAB } = plan.level;
   const floorOf = (st) => FL + st * (CH + SLAB);
   const roomAt = (x, z, st = 0) => plan.rooms.find((r) => storeyOf(r) === st && inside(r.poly, x, z));
+  // the floors one can stand on: void rooms (the upper part of a double-height room) have none
+  const floorAt = (x, z, st) => { const r = roomAt(x, z, st); return r && !r.void ? r : null; };
   const nameOf = (r) => (typeof r.name === 'string' ? r.name : r.name?.en ?? Object.values(r.name ?? {})[0]);
   const on = (st) => (st ? `, storey ${st}` : '');
   const at = (x, z, st = 0) => `(${x.toFixed(2)}, ${z.toFixed(2)}${on(st)})`;
@@ -92,12 +94,15 @@ export function checkLayout(plan, catalog) {
     const [ox, oz] = overlap(floorItems[i].box, floorItems[j].box);
     if (ox > 0.05 && oz > 0.05) problems.push(`${floorItems[i].name} at ${at(floorItems[i].x, floorItems[i].z, floorItems[i].st)} and ${floorItems[j].name} at ${at(floorItems[j].x, floorItems[j].z)} overlap by ${ox.toFixed(2)} x ${oz.toFixed(2)} m`);
   }
-  // nothing may stand on the stairs or in the stairwell
+  // nothing may stand on the stairs (their flights and landings) or in the stairwell
+  const stairBoxes = (sp) => [...(sp.flights ?? []).map((f) => f.box), ...(sp.landings ?? [])];
   for (const sp of stairs) {
     for (const p of floorItems) {
       if (p.st !== sp.from && p.st !== sp.from + 1) continue;
-      const [ox, oz] = overlap(p.box, [sp.box[0], sp.box[2], sp.box[1], sp.box[3]]);
-      if (ox > 0.03 && oz > 0.03) problems.push(`${p.name} at ${at(p.x, p.z, p.st)} stands on the stairs or over the stairwell [${sp.box}]`);
+      for (const b of p.st === sp.from ? [sp.box, ...stairBoxes(sp)] : [sp.box]) {
+        const [ox, oz] = overlap(p.box, [b[0], b[2], b[1], b[3]]);
+        if (ox > 0.03 && oz > 0.03) { problems.push(`${p.name} at ${at(p.x, p.z, p.st)} stands on the stairs or over the stairwell [${b}]`); break; }
+      }
     }
   }
 
@@ -137,7 +142,7 @@ export function checkLayout(plan, catalog) {
   // storey above (one steps off it at the top)
   for (const sp of stairs) {
     const [x0, z0, x1, z1] = sp.box;
-    blocks[sp.from].push([x0, x1, z0, z1]);
+    for (const [a, b, c, d] of [sp.box, ...stairBoxes(sp)]) blocks[sp.from].push([a, c, b, d]);
     if (blocks[sp.from + 1]) blocks[sp.from + 1].push([x0, x1, z0, z1]);
   }
 
@@ -152,7 +157,7 @@ export function checkLayout(plan, catalog) {
   for (let st = 0; st < storeys; st++) {
     const near = blocks[st].map((b) => [b[0] - R, b[1] + R, b[2] - R, b[3] + R, b]);
     // above the ground there is only floor where there are rooms
-    const free = (x, z) => (st === 0 || roomAt(x, z, st)) && !near.some(([a, b, c, d, bx]) => {
+    const free = (x, z) => (st === 0 || floorAt(x, z, st)) && !near.some(([a, b, c, d, bx]) => {
       if (x < a || x > b || z < c || z > d) return false;
       const dx = x - Math.min(Math.max(x, bx[0]), bx[1]), dz = z - Math.min(Math.max(z, bx[2]), bx[3]);
       return dx * dx + dz * dz < R * R;
@@ -178,19 +183,25 @@ export function checkLayout(plan, catalog) {
       else problems.push(`the foot of the stairs at [${sp.box}] (${sp.bottom.map((v) => v.toFixed(2))}${on(st)}) cannot be reached on foot`);
     }
   }
+  // the floor of each room, less what its stairs (flights, landings, the well above) take up
+  const onStairs = (x, z, st) => stairs.some((sp) => (st === sp.from ? [sp.box, ...stairBoxes(sp)] : st === sp.from + 1 ? [sp.box] : [])
+    .some(([a, b, c, d]) => x > a && x < c && z > b && z < d));
   const cells = new Map();
   for (let z = gz0; z < gz1; z += CELL) for (let x = gx0; x < gx1; x += CELL) {
     for (let st = 0; st < storeys; st++) {
       const r = roomAt(x, z, st);
-      if (r) cells.set(r, (cells.get(r) ?? 0) + 1);
+      if (r && !onStairs(x, z, st)) cells.set(r, (cells.get(r) ?? 0) + 1);
     }
   }
   const rooms = [];
   for (const [r, total] of cells) {
+    if (r.void) continue;
+    // a stair hall is mostly stairs: one only has to reach it
+    const stairRoom = stairs.some((sp) => [sp.from, sp.from + 1].some((st) => roomAt((sp.box[0] + sp.box[2]) / 2, (sp.box[1] + sp.box[3]) / 2, st) === r));
     const share = Math.round((100 * (reached.get(r) ?? 0)) / total);
     rooms.push(`${nameOf(r)}: ${share}%`);
     if (!reached.has(r)) problems.push(`${nameOf(r)}${on(storeyOf(r))} cannot be reached on foot from the street gate (a doorway blocked by furniture, too narrow, or no stairs)`);
-    else if (share < 12 && !SMALL_OK.has(r.use)) problems.push(`${nameOf(r)} is too full: only ${share}% of its floor can be reached`);
+    else if (share < 12 && !SMALL_OK.has(r.use) && !stairRoom) problems.push(`${nameOf(r)} is too full: only ${share}% of its floor can be reached`);
   }
   return { problems, rooms };
 }

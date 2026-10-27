@@ -59,18 +59,24 @@ window.__fullTest = async () => {
     }
   }
   // every room of the plan, and the share of its floor one can stand on
+  // the floor of each room, less what its stairs (flights, landings, the well above) take up
+  const onStairs = (x, z, st) => stairs.some((sp) => (st === sp.from ? [sp.box, ...(sp.flights ?? []).map((f) => f.box), ...(sp.landings ?? [])] : st === sp.from + 1 ? [sp.box] : [])
+    .some(([a, b, c, d]) => x > a && x < c && z > b && z < d));
   const cells = new Map();
   for (let z = z0; z < z1; z += CELL) for (let x = x0; x < x1; x += CELL) {
     for (let st = 0; st < h.storeys; st++) {
       const r = h.roomAt(x, z, h.floorOf(st));
-      if (r) cells.set(r, (cells.get(r) ?? 0) + 1);
+      // void rooms (the upper part of a double-height room) have no floor to stand on
+      if (r && !r.void && !onStairs(x, z, st)) cells.set(r, (cells.get(r) ?? 0) + 1);
     }
   }
   const share = (r) => Math.round((100 * (reached.get(r) ?? 0)) / cells.get(r));
   const rooms = [...cells.keys()].map((r) => `${r.name}: ${share(r)}%`);
   const unreachable = [...cells.keys()].filter((r) => !reached.has(r)).map((r) => r.name);
   const SMALL_OK = new Set(['bath', 'shower', 'wc', 'store', 'laundry']);
-  const tight = [...cells.keys()].filter((r) => reached.has(r) && share(r) < 12 && !SMALL_OK.has(r.use)).map((r) => `${r.name}: ${share(r)}%`);
+  // a stair hall is mostly stairs: one only has to reach it
+  const stairRoom = (r) => stairs.some((sp) => [sp.from, sp.from + 1].some((st) => h.roomAt((sp.box[0] + sp.box[2]) / 2, (sp.box[1] + sp.box[3]) / 2, h.floorOf(st)) === r));
+  const tight = [...cells.keys()].filter((r) => reached.has(r) && share(r) < 12 && !SMALL_OK.has(r.use) && !stairRoom(r)).map((r) => `${r.name}: ${share(r)}%`);
 
   // walk the walker by hand toward (tx, tz); false if it gets stuck
   const walkTo = (tx, tz) => {
@@ -118,7 +124,7 @@ window.__fullTest = async () => {
     p.set(sp.bottom[0], h.floorOf(sp.from) + 0.01, sp.bottom[1]);
     H.player.velocity.set(0, 0, 0);
     for (let i = 0; i < 10; i++) H.tick(1 / 30);
-    const ok = walkTo(...sp.top);
+    const ok = (sp.path ?? [sp.top]).every((q) => walkTo(...q));
     for (let i = 0; i < 30; i++) H.tick(1 / 30);
     const arrived = Math.abs(p.y - h.floorOf(sp.from + 1)) < 0.05;
     climbs.push(ok && arrived ? `OK up the stairs [${sp.box}] to ${h.roomAt(p.x, p.z, p.y)?.name ?? '?'}` : `STUCK on the stairs [${sp.box}] at (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`);

@@ -1,6 +1,6 @@
 {
   "name": "house-walk",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Turn a floor plan into a walkable 3D house in your browser: set up the project, read the plan, check it, try variants, tour it, tune it and share it.",
   "author": { "name": "house-walk-kit contributors" },
   "homepage": "https://github.com/itamaroh7/house-walk-kit",

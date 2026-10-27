@@ -15,7 +15,7 @@ room from above with its dimensions.
 
 It is two things in one repository:
 
-- **A template project** (three.js + Vite): houses of one to four storeys with stairs, real sky light, baked indoor light, furniture from a
+- **A template project** (three.js + Vite): houses of one to four storeys with straight, L or U stairs and double-height rooms, real sky light, baked indoor light, furniture from a
   library of free models, a street and a neighbourhood, first and third person, a top view with
   the roof cut away, architectural dimensions, phone joysticks, English and Hebrew.
 - **A Claude Code plugin** (`house-walk`) with skills that set the project up, read your plan,

@@ -2,9 +2,11 @@
 // rest. A plan file (src/plans/*.js) calls makePlan({ ... }) with
 //   - rooms: rectangles [x0, z0, x1, z1] or orthogonal outlines on wall centre lines, each with a
 //     `use` (bedroom, living, kitchen, office, bath, wc, laundry, hall, store, ...) and a
-//     `storey` (0, the ground floor, by default; up to four storeys)
-//   - openings at world positions: { kind, x, z, w?, h?, sill?, shutter?, storey? }
-//   - stairs: straight flights { from, box: [x0, z0, x1, z1], up: 'north' | 'south' | 'east' | 'west' }
+//     `storey` (0, the ground floor, by default; up to four storeys); `void: true` on an upper
+//     room makes it the upper part of a double-height room (no floor; the same outline below)
+//   - openings at world positions: { kind, x, z, w?, h?, sill?, shutter?, storey?, into? }
+//   - stairs: straight flights { from, box: [x0, z0, x1, z1], up: 'north' | 'south' | 'east' | 'west' },
+//     or U and L stairs { from, box: the well, flights: [{ box, up }, ...], landings: [box, ...] }
 //   - a site: the plot, the gates, an optional party wall (semi-detached), where north is
 // and the kit
 //   - draws the walls, storey by storey: wherever two rooms meet (unless they are one open space:
@@ -89,6 +91,11 @@ export function makePlan(spec) {
       if (st > 0 && over.length && !roomAt(cx, cz, st - 1)) problem(`${label(over[0])} (storey ${st}) overhangs at (${cx.toFixed(2)}, ${cz.toFixed(2)}): every upper room must stand on rooms of the storey below`);
     }
   }
+  // a void sits exactly over one room of the storey below: that room rises through both
+  for (const r of rooms.filter((q) => q.void)) {
+    const same = (p, q) => p.length === q.length && p.every(([x, z]) => q.some(([x2, z2]) => Math.abs(x - x2) < E && Math.abs(z - z2) < E));
+    if (!r.storey || !rooms.some((q) => q.storey === r.storey - 1 && same(q.poly, r.poly))) problem(`${label(r)} is a void: it must have exactly the outline of a room on the storey below`);
+  }
   for (const r of rooms) {
     const min = MIN_AREA[r.use];
     const a = areaOf(r.poly);
@@ -166,6 +173,8 @@ export function makePlan(spec) {
     const sill = o.sill ?? d.sill;
     if (sill != null) op.sill = sill;
     if (o.shutter != null) op.shutter = o.shutter;
+    // into: the id of the room an inside door opens into (by default away from the hall)
+    if (o.into) op.into = o.into;
     w.openings.push(op);
     const [sa, sb] = w.seg.alongX ? [roomAt(o.x, o.z - 0.3, st), roomAt(o.x, o.z + 0.3, st)] : [roomAt(o.x - 0.3, o.z, st), roomAt(o.x + 0.3, o.z, st)];
     // a door from an upper storey to the outside opens onto the roof below: no way in or out
@@ -174,31 +183,62 @@ export function makePlan(spec) {
     if (w.exterior && op.kind !== 'door' && op.kind !== 'front') { const r = sa ?? sb; if (r) lit.add(r); }
   }
 
-  // ---- stairs: a straight flight from one storey to the next, `up` the way one climbs
+  // ---- stairs from one storey to the next: a straight flight (`box`, `up` the way one climbs),
+  // or flights joined by landings (`flights: [{ box, up }, ...]`, `landings: [box, ...]`, one
+  // between each two flights: a U or L stair) with `box` the stairwell, the opening in the floor
+  // above. The risers are shared out over the flights by their length, each flight's last riser
+  // stepping onto the landing (or the floor above)
   const RISE_MAX = 0.19, TREAD = [0.24, 0.32];
+  const DIRS = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] };
   const stairs = [];
+  const cornersOf = ([x0, z0, x1, z1]) => [[x0 + 0.05, z0 + 0.05], [x1 - 0.05, z0 + 0.05], [x0 + 0.05, z1 - 0.05], [x1 - 0.05, z1 - 0.05]];
+  const inOneRoom = (b, st) => { const c = cornersOf(b).map(([x, z]) => roomAt(x, z, st)); return c[0] && c.every((r) => r === c[0]); };
   for (const sp of spec.stairs ?? []) {
-    const from = sp.from ?? 0, [x0, z0, x1, z1] = sp.box, up = sp.up;
-    const dir = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] }[up];
-    if (!dir) { problem(`stairs at [${sp.box}]: up must be 'north', 'south', 'east' or 'west'`); continue; }
+    const from = sp.from ?? 0;
+    const specFlights = sp.flights ?? [{ box: sp.box, up: sp.up }];
+    const landings = sp.landings ?? [];
+    const bad = specFlights.find((f) => !DIRS[f.up]);
+    if (bad) { problem(`stairs at [${bad.box}]: up must be 'north', 'south', 'east' or 'west'`); continue; }
     if (from + 1 >= storeys) { problem(`stairs at [${sp.box}] climb from storey ${from} to a storey with no rooms`); continue; }
-    const along = dir[0] ? x1 - x0 : z1 - z0, width = dir[0] ? z1 - z0 : x1 - x0;
-    const risers = Math.ceil(H / RISE_MAX), tread = along / (risers - 1);
-    if (tread < TREAD[0] || tread > TREAD[1]) problem(`stairs at [${sp.box}]: ${risers} steps of ${(H / risers * 100).toFixed(1)} cm need ${(TREAD[0] * (risers - 1)).toFixed(2)}-${(TREAD[1] * (risers - 1)).toFixed(2)} m of run, the box gives ${along.toFixed(2)} m`);
-    if (width < 0.8) problem(`stairs at [${sp.box}] are ${width.toFixed(2)} m wide (at least 0.8 m)`);
-    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, half = along / 2;
+    if (landings.length !== specFlights.length - 1) { problem(`stairs at [${sp.box}]: ${specFlights.length} flights need ${specFlights.length - 1} landings`); continue; }
+    const runs = specFlights.map((f) => (DIRS[f.up][0] ? f.box[2] - f.box[0] : f.box[3] - f.box[1]));
+    const risers = Math.ceil(H / RISE_MAX), treads = risers - specFlights.length, total = runs.reduce((a, b) => a + b, 0);
+    // treads per flight in proportion to its run, the last flight taking what is left
+    const counts = runs.map((r) => Math.max(1, Math.round((r / total) * treads)));
+    counts[counts.length - 1] = treads - counts.slice(0, -1).reduce((a, b) => a + b, 0);
+    let climbed = 0;
+    const flights = specFlights.map((f, i) => {
+      const dir = DIRS[f.up], width = dir[0] ? f.box[3] - f.box[1] : f.box[2] - f.box[0], tread = runs[i] / counts[i];
+      if (counts[i] < 1 || tread < TREAD[0] || tread > TREAD[1]) problem(`stairs at [${f.box}]: ${counts[i]} treads in ${runs[i].toFixed(2)} m of run (${(tread * 100).toFixed(1)} cm each; ${TREAD.map((t) => t * 100).join('-')} cm), risers of ${(H / risers * 100).toFixed(1)} cm`);
+      if (width < 0.8) problem(`stairs at [${f.box}] are ${width.toFixed(2)} m wide (at least 0.8 m)`);
+      if (!inOneRoom(f.box, from)) problem(`stairs at [${f.box}] must stand inside one room of storey ${from}`);
+      const flight = { box: f.box, up: f.up, risers: counts[i] + 1, start: climbed };
+      climbed += counts[i] + 1;
+      return flight;
+    });
+    for (const l of landings) if (!inOneRoom(l, from)) problem(`the landing [${l}] must lie inside one room of storey ${from}`);
+    const well = sp.box ?? specFlights[0].box;
+    // the well within one room above (its floor, and the ceiling below, are cut for it)
+    if (!inOneRoom(well, from + 1)) problem(`the stairwell [${well}] must lie inside one room of storey ${from + 1} (the opening in its floor)`);
     // where one steps on (before the first step) and off (past the last), 0.4 m out
-    const bottom = [cx - dir[0] * (half + 0.4), cz - dir[1] * (half + 0.4)], top = [cx + dir[0] * (half + 0.4), cz + dir[1] * (half + 0.4)];
-    const corners = [[x0 + 0.05, z0 + 0.05], [x1 - 0.05, z0 + 0.05], [x0 + 0.05, z1 - 0.05], [x1 - 0.05, z1 - 0.05]];
-    // the flight within one room, and its well within one room above (their ceiling and floor
-    // are cut for it)
-    if (new Set(corners.map(([x, z]) => roomAt(x, z, from))).size !== 1 || !roomAt(...corners[0], from)) problem(`stairs at [${sp.box}] must stand inside one room of storey ${from}`);
-    if (new Set(corners.map(([x, z]) => roomAt(x, z, from + 1))).size !== 1 || !roomAt(...corners[0], from + 1)) problem(`the stairwell [${sp.box}] must lie inside one room of storey ${from + 1} (the opening in its floor)`);
+    const end = (f, sign) => {
+      const [x0, z0, x1, z1] = f.box, dir = DIRS[f.up], cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+      const half = (dir[0] ? x1 - x0 : z1 - z0) / 2 + 0.4;
+      return [cx + sign * dir[0] * half, cz + sign * dir[1] * half];
+    };
+    const bottom = end(specFlights[0], -1), top = end(specFlights[specFlights.length - 1], 1);
     const a = roomAt(...bottom, from), b = roomAt(...top, from + 1);
-    if (!a) problem(`nowhere to step onto the stairs at [${sp.box}] (${bottom.map((v) => v.toFixed(2))}, storey ${from})`);
-    if (!b) problem(`nowhere to step off the stairs at [${sp.box}] (${top.map((v) => v.toFixed(2))}, storey ${from + 1})`);
+    if (!a) problem(`nowhere to step onto the stairs at [${well}] (${bottom.map((v) => v.toFixed(2))}, storey ${from})`);
+    if (!b) problem(`nowhere to step off the stairs at [${well}] (${top.map((v) => v.toFixed(2))}, storey ${from + 1})`);
     if (a && b) link(a, b);
-    stairs.push({ from, box: sp.box, up, risers, bottom, top, ...(sp.material ? { material: sp.material } : {}) });
+    // the way up, for the tests' walker: each flight's foot and head (0.2 m in from its ends),
+    // across each landing, then off at the top
+    const inner = (f, sign) => { const [x0, z0, x1, z1] = f.box, dir = DIRS[f.up], half = (dir[0] ? x1 - x0 : z1 - z0) / 2 - 0.2; return [(x0 + x1) / 2 + sign * dir[0] * half, (z0 + z1) / 2 + sign * dir[1] * half]; };
+    const path = specFlights.flatMap((f, i) => [inner(f, -1), inner(f, 1), ...(landings[i] ? [[(landings[i][0] + landings[i][2]) / 2, (landings[i][1] + landings[i][3]) / 2]] : [])]).concat([top]);
+    // a straight flight keeps the shape it always had (it is part of the light bake's key: a new
+    // shape would make every house with stairs bake its light again)
+    const entry = { from, box: well, up: flights[0].up, risers, bottom, top, ...(sp.material ? { material: sp.material } : {}) };
+    stairs.push(sp.flights ? { ...entry, flights, landings, path } : entry);
   }
 
   // one open space (zone / open) is one room for walking and for daylight
@@ -234,6 +274,8 @@ export function makePlan(spec) {
         floor: r.floor ?? (wet ? 'tiles_floor_dark' : 'floor_porcelain_light'),
         ...(r.walls ? { walls: r.walls } : wet ? { walls: 'tiles_wall_white' } : {}),
         ...((r.hall ?? HALL.has(r.use)) ? { hall: true } : {}), ...(r.safe ? { safe: true } : {}),
+        // void: the upper part of a double-height room below (no floor of its own)
+        ...(r.void ? { void: true } : {}),
       };
     }),
     outdoor: {

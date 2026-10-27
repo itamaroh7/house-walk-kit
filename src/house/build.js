@@ -107,6 +107,11 @@ export async function buildHouse(plan) {
   const storeyAt = (y) => THREE.MathUtils.clamp(Math.floor((y - FL + 0.5) / STOREY_H), 0, STOREYS - 1);
   const roomAt = (x, z, st = 0) => plan.rooms.find((r) => storeyOf(r) === st && inPoly(r.poly, x, z)) ?? null;
   const stairs = plan.stairs ?? [];
+  // void rooms are the upper part of a double-height room: they have no floor, and the room
+  // under one (the same outline, one storey down) has no ceiling or slab
+  const voids = plan.rooms.filter((r) => r.void);
+  const samePoly = (a, b) => a.length === b.length && a.every(([x, z]) => b.some(([x2, z2]) => Math.abs(x - x2) < 1e-6 && Math.abs(z - z2) < 1e-6));
+  const openAbove = (r) => voids.some((v) => storeyOf(v) === storeyOf(r) + 1 && samePoly(v.poly, r.poly));
 
   // geometry is collected per material and merged: one draw call per material
   const parts = new Map();
@@ -147,7 +152,9 @@ export async function buildHouse(plan) {
     // an outside wall rises to the parapet, or where the next storey's outside wall stands on it
     // (w.covered stretches) to that storey's floor
     const covered = (m) => (w.covered ?? []).some(([c0, c1]) => m > c0 && m < c1);
-    const topAt = (m) => (w.exterior ? (covered(m) ? floorOf(WS + 1) : WTOP + SLAB + PARAPET) : w.h ? WFL + (w.h <= 1 ? w.h * CH : w.h) : WTOP);
+    // an inside wall of a double-height room rises to the floor above (no slab band shows)
+    const tall = (m) => [-1, 1].some((s) => { const r = alongX ? roomHere(m, v + s * (t / 2 + 0.02)) : roomHere(v + s * (t / 2 + 0.02), m); return r && openAbove(r); });
+    const topAt = (m) => (w.exterior ? (covered(m) ? floorOf(WS + 1) : WTOP + SLAB + PARAPET) : w.h ? WFL + (w.h <= 1 ? w.h * CH : w.h) : tall(m) ? floorOf(WS + 1) : WTOP);
     const yBottom = w.exterior && !WS ? 0 : WFL;
     // cut along the wall at openings and wherever a room corner touches it, so each piece
     // faces a single room on each side
@@ -214,7 +221,10 @@ export async function buildHouse(plan) {
             return r ? (r.walls ?? plan.finishes.interior) : plan.finishes.exterior;
           }
           const r = roomHere(px, pz);
-          if (r && cy < WTOP + 0.01) return r.walls ?? plan.finishes.interior;
+          // (a double-height room's walls carry its finish on up past the ceiling line, and so do
+          // the walls round a stairwell, seen from the stairs)
+          const inWell = stairs.some((sp) => sp.from === WS && px > sp.box[0] - 0.15 && px < sp.box[2] + 0.15 && pz > sp.box[1] - 0.15 && pz < sp.box[3] + 0.15);
+          if (r && (cy < WTOP + 0.01 || openAbove(r) || inWell)) return r.walls ?? plan.finishes.interior;
           if (plinth) return plan.finishes.plinth;
           return cladAt(wi, mid - u0) ?? w.finish ?? plan.finishes.exterior;
         };
@@ -230,7 +240,7 @@ export async function buildHouse(plan) {
           for (const sgn of [1, -1]) {
             const px = cx + (alongX ? 0 : sgn * (sx / 2 + 0.05)), pz = cz + (alongX ? sgn * (sz / 2 + 0.05) : 0);
             const r = roomHere(px, pz);
-            if (!r || r.walls) continue;
+            if (!r || r.walls || r.void) continue;
             const len = alongX ? sx : sz;
             const g = new THREE.BoxGeometry(alongX ? len : 0.015, 0.08, alongX ? 0.015 : len);
             g.translate(alongX ? cx : cx + sgn * (sx / 2 + 0.0075), WFL + 0.04, alongX ? cz + sgn * (sz / 2 + 0.0075) : cz);
@@ -254,6 +264,7 @@ export async function buildHouse(plan) {
   // the floor level inside: each room, reaching under its walls and door thresholds (not over a
   // stairwell)
   for (const r of plan.rooms) {
+    if (r.void) continue;
     const st = storeyOf(r), wells = wellsIn(r, st - 1);
     for (const [a, b2, c2, d] of rectsOf(r.poly, wells)) {
       const reach = (x, z) => (wells.some((wb) => inBox(x, z, wb)) ? 0 : 0.14);
@@ -268,10 +279,13 @@ export async function buildHouse(plan) {
   };
   for (const r of plan.rooms) {
     const st = storeyOf(r);
-    const f = new THREE.ShapeGeometry(shapeOf(r.poly, true, wellsIn(r, st - 1)));
-    f.rotateX(-Math.PI / 2);
-    f.translate(0, floorOf(st) + EPS, 0);
-    addGeo(r.floor, f);
+    if (!r.void) {
+      const f = new THREE.ShapeGeometry(shapeOf(r.poly, true, wellsIn(r, st - 1)));
+      f.rotateX(-Math.PI / 2);
+      f.translate(0, floorOf(st) + EPS, 0);
+      addGeo(r.floor, f);
+    }
+    if (openAbove(r)) continue;
     const c = new THREE.ShapeGeometry(shapeOf(r.poly, false, wellsIn(r, st)));
     c.rotateX(Math.PI / 2);
     c.translate(0, topOf(st), 0);
@@ -284,6 +298,7 @@ export async function buildHouse(plan) {
   // default (in facade plaster it read as a clipped white plastic sheet from above)
   const shadowParts = [];
   for (const r of plan.rooms) {
+    if (openAbove(r)) continue;
     const st = storeyOf(r), wells = wellsIn(r, st);
     const g = new THREE.ExtrudeGeometry(shapeOf(r.poly, true, wells), { depth: SLAB - 0.02, bevelEnabled: false });
     g.rotateX(-Math.PI / 2);
@@ -730,52 +745,119 @@ export async function buildHouse(plan) {
     for (const e of [u0 + 0.03, u1 - 0.03]) addGeo('aluminium_black', alongX ? new THREE.BoxGeometry(0.03, h, 0.03).translate(e, y0 + h / 2, line) : new THREE.BoxGeometry(0.03, h, 0.03).translate(line, y0 + h / 2, e));
   };
   for (const sp of stairs) {
-    const [x0, z0, x1, z1] = sp.box, st = sp.from, base = floorOf(st), rise = (floorOf(st + 1) - base) / sp.risers;
-    const acrossX = sp.up === 'east' || sp.up === 'west', sign = sp.up === 'east' || sp.up === 'south' ? 1 : -1;
-    const [a0, a1] = acrossX ? [x0, x1] : [z0, z1], [c0, c1] = acrossX ? [z0, z1] : [x0, x1];
-    const n = sp.risers - 1, tread = (a1 - a0) / n;
+    const st = sp.from, base = floorOf(st), top = floorOf(st + 1), rise = (top - base) / sp.risers;
     const mat = sp.material ?? 'wood_oak';
     const room = roomAt(...sp.bottom, st);
-    for (let i = 0; i < n; i++) {
-      // step i (0 = the lowest) runs from the start of the climb by i treads
-      const s0 = sign > 0 ? a0 + i * tread : a1 - (i + 1) * tread, s1 = s0 + tread, top = base + (i + 1) * rise;
-      const g = acrossX ? new THREE.BoxGeometry(tread, top - base, c1 - c0).translate((s0 + s1) / 2, (base + top) / 2, (c0 + c1) / 2)
-        : new THREE.BoxGeometry(c1 - c0, top - base, tread).translate((c0 + c1) / 2, (base + top) / 2, (s0 + s1) / 2);
-      addGeo(i === n - 1 ? (room?.floor ?? mat) : mat, g);
-      // the flight's open sides: a balustrade on every step
-      for (const side of [c0, c1]) if (!wallAlong(st, acrossX, side, a0, a1)) balustrade(acrossX, side, s0, s1, top, 0.9, false);
-    }
-    // the walker climbs a smooth slope over the steps (step by step it jumped 18 cm at a time):
-    // from the floor at the foot of the flight to the floor above at its head
-    const foot = sign > 0 ? a0 : a1, head = sign > 0 ? a1 : a0;
-    walkable.push({ minX: x0, maxX: x1, minZ: z0, maxZ: z1, top: floorOf(st + 1), ramp: { alongX: acrossX, u0: foot, u1: head, y0: base, y1: floorOf(st + 1) } });
-    // one handrail along each open side, following the slope from the first step to the last,
-    // with a post at each end
-    for (const side of [c0, c1]) {
-      if (wallAlong(st, acrossX, side, a0, a1)) continue;
-      const uLow = sign > 0 ? a0 : a1, uHigh = sign > 0 ? a1 - tread : a0 + tread;
-      const yLow = base + rise + 0.9, yHigh = base + n * rise + 0.9;
-      const du = uHigh - uLow, dy = yHigh - yLow, len = Math.hypot(du, dy);
-      const rail = new THREE.BoxGeometry(acrossX ? len : 0.05, 0.04, acrossX ? 0.05 : len);
-      if (acrossX) rail.rotateZ(Math.atan2(dy, du)); else rail.rotateX(Math.atan2(-dy, du));
-      addGeo('aluminium_black', acrossX ? rail.translate((uLow + uHigh) / 2, (yLow + yHigh) / 2, side) : rail.translate(side, (yLow + yHigh) / 2, (uLow + uHigh) / 2));
-      for (const [u, y] of [[uLow, base + rise], [uHigh, base + n * rise]]) {
-        addGeo('aluminium_black', acrossX ? new THREE.BoxGeometry(0.04, 0.92, 0.04).translate(u, y + 0.46, side) : new THREE.BoxGeometry(0.04, 0.92, 0.04).translate(side, y + 0.46, u));
+    // a straight flight, or the flights of a U or L stair, each from where the one before it
+    // left off (kit.js shared the risers out)
+    const flights = sp.flights ?? [{ box: sp.box, up: sp.up, risers: sp.risers, start: 0 }];
+    let arrival = null;
+    flights.forEach((f, fi) => {
+      const [x0, z0, x1, z1] = f.box;
+      const acrossX = f.up === 'east' || f.up === 'west', sign = f.up === 'east' || f.up === 'south' ? 1 : -1;
+      const [a0, a1] = acrossX ? [x0, x1] : [z0, z1], [c0, c1] = acrossX ? [z0, z1] : [x0, x1];
+      const n = f.risers - 1, tread = (a1 - a0) / n;
+      // its foot, and the level its last riser steps onto (a landing, or the floor above)
+      const y0 = base + f.start * rise, y1 = y0 + f.risers * rise;
+      // a solid block of steps on a block of wall down to the floor
+      const block = (s0, s1, y0b, y1b, m) => addGeo(m, acrossX ? new THREE.BoxGeometry(s1 - s0, y1b - y0b, c1 - c0).translate((s0 + s1) / 2, (y0b + y1b) / 2, (c0 + c1) / 2)
+        : new THREE.BoxGeometry(c1 - c0, y1b - y0b, s1 - s0).translate((c0 + c1) / 2, (y0b + y1b) / 2, (s0 + s1) / 2));
+      for (let i = 0; i < n; i++) {
+        // step i (0 = the lowest) runs from the start of the climb by i treads: the step itself,
+        // and under it the painted block down to the floor
+        const s0 = sign > 0 ? a0 + i * tread : a1 - (i + 1) * tread, s1 = s0 + tread, stepTop = y0 + (i + 1) * rise;
+        block(s0, s1, Math.max(base, stepTop - rise), stepTop, fi === flights.length - 1 && i === n - 1 ? (room?.floor ?? mat) : mat);
+        if (stepTop - rise > base + 0.01) block(s0, s1, base, stepTop - rise, plan.finishes.interior);
+        // the flight's open sides: a balustrade on every step
+        for (const side of [c0, c1]) if (!wallAlong(st, acrossX, side, a0, a1)) balustrade(acrossX, side, s0, s1, stepTop, 0.9, false);
+      }
+      // the walker climbs a smooth slope over the steps (step by step it jumped 18 cm at a time):
+      // from the floor or landing at the foot of the flight to the level at its head
+      const foot = sign > 0 ? a0 : a1, head = sign > 0 ? a1 : a0;
+      walkable.push({ minX: x0, maxX: x1, minZ: z0, maxZ: z1, top: y1, ramp: { alongX: acrossX, u0: foot, u1: head, y0, y1 } });
+      // one handrail along each open side, following the slope from the first step to the last,
+      // with a post at each end
+      for (const side of [c0, c1]) {
+        if (wallAlong(st, acrossX, side, a0, a1)) continue;
+        const uLow = sign > 0 ? a0 : a1, uHigh = sign > 0 ? a1 - tread : a0 + tread;
+        const yLow = y0 + rise + 0.9, yHigh = y0 + n * rise + 0.9;
+        const du = uHigh - uLow, dy = yHigh - yLow, len = Math.hypot(du, dy);
+        const rail = new THREE.BoxGeometry(acrossX ? len : 0.05, 0.04, acrossX ? 0.05 : len);
+        if (acrossX) rail.rotateZ(Math.atan2(dy, du)); else rail.rotateX(Math.atan2(-dy, du));
+        addGeo('aluminium_black', acrossX ? rail.translate((uLow + uHigh) / 2, (yLow + yHigh) / 2, side) : rail.translate(side, (yLow + yHigh) / 2, (uLow + uHigh) / 2));
+        for (const [u, y] of [[uLow, y0 + rise], [uHigh, y0 + n * rise]]) {
+          addGeo('aluminium_black', acrossX ? new THREE.BoxGeometry(0.04, 0.92, 0.04).translate(u, y + 0.46, side) : new THREE.BoxGeometry(0.04, 0.92, 0.04).translate(side, y + 0.46, u));
+        }
+      }
+      // the walker can't step onto the flight from its sides (nor walk under it)
+      for (const side of [c0, c1]) obstacles.push(acrossX ? box(a0, a1, side - 0.03, side + 0.03, base, y1 + 1.0) : box(side - 0.03, side + 0.03, a0, a1, base, y1 + 1.0));
+      // the flight's high end, as a wall for someone walking under it on the storey below (low
+      // enough that someone on the last steps is not stopped by it)
+      obstacles.push(acrossX ? box(head - 0.03, head + 0.03, c0, c1, base, base + 1.2) : box(c0, c1, head - 0.03, head + 0.03, base, base + 1.2));
+      // where the last flight arrives upstairs: no railing across it
+      if (fi === flights.length - 1) arrival = { alongX: !acrossX, line: head, u0: c0, u1: c1 };
+    });
+    // landings: a solid block up to the level the flight before steps onto
+    (sp.landings ?? []).forEach(([x0, z0, x1, z1], li) => {
+      const f = flights[li], y = base + (f.start + f.risers) * rise;
+      addGeo(mat, new THREE.BoxGeometry(x1 - x0, rise, z1 - z0).translate((x0 + x1) / 2, y - rise / 2, (z0 + z1) / 2));
+      addGeo(plan.finishes.interior, new THREE.BoxGeometry(x1 - x0, y - rise - base, z1 - z0).translate((x0 + x1) / 2, (base + y - rise) / 2, (z0 + z1) / 2));
+      walkable.push({ minX: x0, maxX: x1, minZ: z0, maxZ: z1, top: y });
+    });
+    // the stairwell's railing on the storey above, along every edge of the opening that has no
+    // wall, except where the last flight arrives
+    const [wx0, wz0, wx1, wz1] = sp.box;
+    for (const [alongX, line, u0, u1, inward] of [[true, wz0, wx0, wx1, 1], [true, wz1, wx0, wx1, -1], [false, wx0, wz0, wz1, 1], [false, wx1, wz0, wz1, -1]]) {
+      // the edge of the floor slab round the opening, finished like the ceiling
+      const e = line + inward * 0.01, yl = topOf(st) - 0.01;
+      addGeo(plan.finishes.ceiling, alongX ? new THREE.BoxGeometry(u1 - u0, top - yl, 0.02).translate((u0 + u1) / 2, (yl + top) / 2 - 0.005, e)
+        : new THREE.BoxGeometry(0.02, top - yl, u1 - u0).translate(e, (yl + top) / 2 - 0.005, (u0 + u1) / 2));
+      if (wallAlong(st + 1, alongX, line, u0, u1)) continue;
+      let pieces = [[u0, u1]];
+      if (arrival && arrival.alongX === alongX && Math.abs(arrival.line - line) < 0.05) {
+        pieces = [[u0, Math.max(u0, arrival.u0)], [Math.min(u1, arrival.u1), u1]].filter(([a, b]) => b - a > 0.05);
+      }
+      for (const [a, b] of pieces) {
+        balustrade(alongX, line, a, b, top);
+        obstacles.push(alongX ? box(a, b, line - 0.03, line + 0.03, top, top + 1.0) : box(line - 0.03, line + 0.03, a, b, top, top + 1.0));
       }
     }
-    // the walker can't step onto the flight from its sides (nor walk under it), nor off the
-    // upper floor into the stairwell; the stairwell's railing on the storey above
-    const top = floorOf(st + 1);
-    for (const side of [c0, c1]) {
-      obstacles.push(acrossX ? box(a0, a1, side - 0.03, side + 0.03, base, top + 1.0) : box(side - 0.03, side + 0.03, a0, a1, base, top + 1.0));
-      if (!wallAlong(st + 1, acrossX, side, a0, a1)) balustrade(acrossX, side, a0, a1, top);
-    }
-    const low = sign > 0 ? a0 : a1, high = sign > 0 ? a1 : a0;
-    obstacles.push(acrossX ? box(low - 0.03, low + 0.03, c0, c1, top, top + 1.0) : box(c0, c1, low - 0.03, low + 0.03, top, top + 1.0));
-    // the flight's high end, as a wall for someone walking under it on the storey below (low
-    // enough that someone on the last steps is not stopped by it)
-    obstacles.push(acrossX ? box(high - 0.03, high + 0.03, c0, c1, base, base + 1.2) : box(c0, c1, high - 0.03, high + 0.03, base, base + 1.2));
-    if (!wallAlong(st + 1, !acrossX, low, c0, c1)) balustrade(!acrossX, low, c0, c1, top);
+  }
+
+  // the edges of a double-height room: where its void meets a room of the same storey with no
+  // wall between them (a gallery), a glass railing on that floor's edge; and wherever the slab of
+  // a neighbouring room shows its edge to the tall space (no wall below), that edge finished like
+  // the ceiling
+  for (const v of voids) {
+    const st = storeyOf(v), y = floorOf(st);
+    v.poly.forEach(([ax, az], i) => {
+      const [bx, bz] = v.poly[(i + 1) % v.poly.length];
+      const alongX = Math.abs(az - bz) < 1e-6, line = alongX ? az : ax;
+      const lo = alongX ? Math.min(ax, bx) : Math.min(az, bz), hi = alongX ? Math.max(ax, bx) : Math.max(az, bz);
+      // the side away from the void
+      const mid = [(ax + bx) / 2, (az + bz) / 2];
+      const out = alongX ? (inPoly(v.poly, mid[0], line - 0.05) ? 1 : -1) : (inPoly(v.poly, line - 0.05, mid[1]) ? 1 : -1);
+      const runsWhere = (test) => {
+        const runs = [];
+        for (let u = lo + 0.05; u < hi; u += 0.1) {
+          if (!test(u)) continue;
+          const last = runs[runs.length - 1];
+          if (last && Math.abs(last[1] - (u - 0.05)) < 1e-6) last[1] = Math.min(hi, u + 0.05); else runs.push([Math.max(lo, u - 0.05), Math.min(hi, u + 0.05)]);
+        }
+        return runs.filter(([a, b]) => b - a >= 0.1);
+      };
+      const beyond = (u, s) => (alongX ? roomAt(u, line + out * 0.1, s) : roomAt(line + out * 0.1, u, s));
+      for (const [a, b] of runsWhere((u) => { const o = beyond(u, st); return o && !o.void && !wallAlong(st, alongX, line, u - 0.05, u + 0.05); })) {
+        const e = line + out * 0.03;
+        balustrade(alongX, e, a, b, y);
+        obstacles.push(alongX ? box(a, b, e - 0.03, e + 0.03, y, y + 1.0) : box(e - 0.03, e + 0.03, a, b, y, y + 1.0));
+      }
+      for (const [a, b] of runsWhere((u) => { const o = beyond(u, st - 1); return o && !openAbove(o) && !wallAlong(st - 1, alongX, line, u - 0.05, u + 0.05); })) {
+        const lip = alongX ? new THREE.BoxGeometry(b - a, SLAB + 0.02, 0.02).translate((a + b) / 2, y - SLAB / 2 - 0.01, line - out * 0.01)
+          : new THREE.BoxGeometry(0.02, SLAB + 0.02, b - a).translate(line - out * 0.01, y - SLAB / 2 - 0.01, (a + b) / 2);
+        addGeo(plan.finishes.ceiling, lip);
+      }
+    });
   }
 
   // ---------- merge into one mesh per material ----------
@@ -833,7 +915,7 @@ export async function buildHouse(plan) {
     if (o.kind === 'door') {
       // an inside door opens into the room, away from the hall: its +Z faces the hall
       const plus = alongX ? roomHere(x, z + 0.3) : roomHere(x + 0.3, z), minus = alongX ? roomHere(x, z - 0.3) : roomHere(x - 0.3, z);
-      const toPlus = plus?.hall && !minus?.hall;
+      const toPlus = o.into ? o.into === minus?.id : plus?.hall && !minus?.hall;
       outward = alongX ? (toPlus ? 0 : Math.PI) : (toPlus ? Math.PI / 2 : -Math.PI / 2);
     }
     if (o.kind === 'gap') return;
@@ -1056,7 +1138,7 @@ export async function buildHouse(plan) {
   if (missing.length) console.warn('house: models not in the library yet:', [...new Set(missing)].join(', '));
 
   // recessed downlights on the ceilings; the light bake lights the rooms from them
-  const lights = plan.rooms.flatMap((r) => roomLights(r, topOf(storeyOf(r))));
+  const lights = plan.rooms.filter((r) => !openAbove(r)).flatMap((r) => roomLights(r, topOf(storeyOf(r))));
   const downlight = await proto('interior/ceiling_light_recessed');
   let lampLens = null;
   if (downlight) {

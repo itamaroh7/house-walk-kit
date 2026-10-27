@@ -103,7 +103,8 @@ export function createDimensions(drawn, { y, container, storey = '', plot: withP
   for (const r of rooms) {
     const net = netOutline(r.poly);
     const area = Math.abs(signedArea(net));
-    netTotal += area;
+    // the void over a double-height room is no floor: named, not counted
+    if (!r.void) netTotal += area;
     // the label goes in the biggest cell of the room's grid, so it stays inside L-shaped rooms
     const xs = [...new Set(r.poly.map((p) => p[0]))].sort((a, b) => a - b), zs = [...new Set(r.poly.map((p) => p[1]))].sort((a, b) => a - b);
     let cell = null;
@@ -117,7 +118,7 @@ export function createDimensions(drawn, { y, container, storey = '', plot: withP
     const wx = Math.max(...nx) - Math.min(...nx), wz = Math.max(...nz) - Math.min(...nz);
     const size = net.length === 4 ? `${t('metres', { v: `${m(wx)} ×${wx < 2 ? '<br>' : ' '}${m(wz)}` })}<br>` : '';
     // a room's name may be in any language: its own direction (dir=auto)
-    label(`<b dir="auto">${escape(r.name)}</b><br>${size}${t('squareMetres', { v: area.toFixed(1) })}`, cell.cx, cell.cz, 'room');
+    label(r.void ? `<b dir="auto">${escape(r.name)}</b>` : `<b dir="auto">${escape(r.name)}</b><br>${size}${t('squareMetres', { v: area.toFixed(1) })}`, cell.cx, cell.cz, 'room');
   }
 
   // ---- the footprint on a grid of the room outlines' own coordinates
@@ -145,7 +146,8 @@ export function createDimensions(drawn, { y, container, storey = '', plot: withP
     if (n === 1) corners++;
     else if (n === 3) corners--;
   }
-  const gross = footprint + perimeter * e + corners * e * e;
+  // (less the voids over double-height rooms: their walls are there, their floor is not)
+  const gross = footprint + perimeter * e + corners * e * e - rooms.filter((r) => r.void).reduce((a, r) => a + Math.abs(signedArea(r.poly)), 0);
 
   // ---- outside chains: along each side, ticks where the facade seen from that side steps in or
   // out (on the outer faces), then the overall size one row further out

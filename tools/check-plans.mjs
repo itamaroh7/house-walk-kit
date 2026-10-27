@@ -32,13 +32,14 @@ for (const file of files) {
     continue;
   }
   if (!plan?.rooms) continue;
-  const total = plan.rooms.reduce((a, r) => a + area(r.poly), 0);
+  // (the void over a double-height room has no floor of its own)
+  const total = plan.rooms.filter((r) => !r.void).reduce((a, r) => a + area(r.poly), 0);
   const [x0, z0, x1, z1] = plan.site.plot;
   console.log(`\n${plan.id} - ${name(plan.name)}`);
   console.log(`  ${plan.rooms.length} rooms, ${total.toFixed(1)} m2 on wall centre lines; plot ${(x1 - x0).toFixed(1)} x ${(z1 - z0).toFixed(1)} m = ${((x1 - x0) * (z1 - z0)).toFixed(0)} m2${plan.site.party ? `, party wall ${plan.site.party}` : ''}`);
   const layout = catalog ? checkLayout(plan, catalog) : { problems: [], rooms: [] };
   const reach = new Map(layout.rooms.map((s) => [s.slice(0, s.lastIndexOf(':')), s.slice(s.lastIndexOf(':') + 2)]));
-  for (const r of plan.rooms) console.log(`    ${name(r.name).padEnd(28)} ${r.use.padEnd(8)} ${area(r.poly).toFixed(1).padStart(6)} m2${reach.has(name(r.name)) ? `   walkable ${reach.get(name(r.name))}` : ''}`);
+  for (const r of plan.rooms) console.log(`    ${name(r.name).padEnd(28)} ${(r.void ? 'void' : r.use).padEnd(8)} ${area(r.poly).toFixed(1).padStart(6)} m2${reach.has(name(r.name)) ? `   walkable ${reach.get(name(r.name))}` : ''}`);
   const problems = [...plan.problems, ...layout.problems];
   if (problems.length) {
     failed++;

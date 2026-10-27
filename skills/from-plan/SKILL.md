@@ -38,8 +38,13 @@ user's drawing or its crops anywhere else).
    (`site.party: 'east'|'west'`). Find the front door in the drawing (arrow, arc to the outside).
 6. **More than one floor** (usually one drawing each): one set of coordinates for all - line the
    drawings up on the stairs and an outer wall. Upper rooms, openings and furniture get
-   `storey: 1` (2...); add `stairs: [{ from, box, up }]` (a U-shaped stair becomes the straight
-   flight that fits its well). `src/plans/example-two-storey.js` is a whole two-storey house.
+   `storey: 1` (2...); add `stairs: [{ from, box, up }]` for a straight flight. A U or L stair is
+   built as drawn: its flights (each `{ box, up }`, read from the drawn treads and the walking
+   line's arrow) and the landing between them, with `box` the stairwell (`CLAUDE.md`). A room
+   open over two floors (a double-height living room: an upstairs area with no door and no
+   windows of its own, open to a gallery) is a `void: true` room upstairs with exactly the
+   outline of the room below, `open` to the gallery room. `src/plans/example-two-storey.js` is a
+   whole two-storey house.
 7. Things the library lacks at the drawn size (a 1.2 m counter, a stub wall, a niche): a
    `details.panels` box of exactly that size.
 8. **After building:** take a top view (key T or M) and put it beside the drawing:

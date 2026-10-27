@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.0 (2026-10-27)
+
+- U and L stairs: `stairs: [{ from, box, flights: [{ box, up }, ...], landings: [box, ...] }]`,
+  each flight with its own run and direction and a landing between them; the risers are shared
+  out over the flights by their run, `box` is the stairwell. Steps are wood treads on painted
+  blocks (the space under a raised flight is closed in), the stairwell gets a glass railing on
+  every open edge except where the last flight arrives, and the walls round it carry the room's
+  finish past the slab.
+- Double-height rooms: an upstairs room with `void: true` and exactly the outline of the room
+  below has no floor; that room loses its ceiling and slab and its walls rise through both
+  storeys. An upstairs room `open` to the void becomes a gallery with a glass railing; the slab
+  edges facing the tall space are finished like the ceiling. Voids are left out of the areas
+  (dimensions, `npm run check`) and of the walking checks.
+- `into` on an inside door picks the room it opens into (by default it opens away from the hall).
+- The checks know the new pieces: flights without landings, voids not over a room, furniture on
+  flights and landings, a stair hall's floor taken by its stairs; the full test climbs a U stair
+  flight by flight.
+- Existing plans keep their light bakes: a straight flight is stored as before.
+
 ## 0.4.0 (2026-10-26)
 
 - About twice the frame rate on ordinary laptops (Intel Iris Xe: 40-45 to 80-95 fps in a house of
